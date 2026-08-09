@@ -249,22 +249,28 @@ For bit_idx from 0 to total_bits - 1:
 Return concatenate(geohash)
 ```
 
----
-
-### 6.2 Stable Hash Primary Assignment
-To assign a primary configuration ID to a cell without any external database or neighbor coordinates, compliant devices MUST hash the Geohash string using a stable cryptographic hash.
+### 6.2 2D Coordinate-Based Modular Tessellation Grid
+To assign a primary configuration ID to a cell without any external database, neighbor coordinates, or hashing overhead, compliant devices MUST map the Geohash cell to its 2D discrete grid indices and apply a modular shifting tessellation. This mathematically guarantees that no adjacent cells share the same primary configuration.
 
 ```text
-Algorithm: GetPrimaryByHash
-Input: geohash_str, algorithm_version = "1.0", config_version = "1.0"
+Algorithm: GetPrimaryByTessellation
+Input: geohash_str
 Output: configuration_id (integer 0 to 303)
 
-Let payload = concatenate(algorithm_version, ":", geohash_str, ":", config_version)
-Let sha_hash = SHA256(payload)  # Returns 32-byte array
-Let first_8_bytes = sha_hash[0..7]
-Let int_value = BigEndianInteger(first_8_bytes)
+Let lat, lon, lat_err, lon_err = DecodeGeohash(geohash_str)
+Let lat_height = 2.0 * lat_err
+Let lon_width = 2.0 * lon_err
 
-Return int_value mod 304
+# Discretize geographic coordinates into stable discrete integer coordinates
+Let Y = Round((lat + 90.0) / lat_height)
+Let X = Round((lon + 180.0) / lon_width)
+
+# Apply 2D modular shift pattern (multipliers: MX = 1, MY = 17)
+Let color_id = (Y * 17 + X) mod 304
+If color_id < 0:
+    color_id = color_id + 304
+
+Return color_id
 ```
 
 ---
@@ -278,7 +284,7 @@ Input: lat, lon, precision, radius_km, K
 Output: profile_dictionary
 
 Let cell_geohash = EncodeGeohash(lat, lon, precision)
-Let primary_id = GetPrimaryByHash(cell_geohash)
+Let primary_id = GetPrimaryByTessellation(cell_geohash)
 
 If K <= 1:
     Return { geohash: cell_geohash, primary: primary_id, configurations: [primary_id] }
@@ -319,7 +325,7 @@ Initialize seen_configs = {primary_id}
 For each (dist, gh) in neighbors:
     If length(allocated_configs) >= K:
         Break
-    Let neigh_primary = GetPrimaryByHash(gh)
+    Let neigh_primary = GetPrimaryByTessellation(gh)
     If neigh_primary not in seen_configs:
         Add neigh_primary to allocated_configs
         Add neigh_primary to seen_configs
@@ -359,7 +365,7 @@ For each node in sorted_nodes:
             
     If assigned_color == -1:
         # Fallback to local hash if neighbor degrees exceed 304 (extremely rare)
-        assigned_color = GetPrimaryByHash(node)
+        assigned_color = GetPrimaryByTessellation(node)
         
     primary_assignments[node] = assigned_color
 

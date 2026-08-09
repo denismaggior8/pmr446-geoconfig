@@ -64,9 +64,10 @@ The geographic compatibility distance between cell centers $(lat_1, lon_1)$ and 
 $$a = \sin^2\left(\frac{lat_2 - lat_1}{2}\right) + \cos(lat_1)\cos(lat_2)\sin^2\left(\frac{lon_2 - lon_1}{2}\right)$$
 $$d = 2 \cdot R_{\text{earth}} \cdot \arcsin(\sqrt{a})$$
 
-### 3.3 Stable Hash Primary Allocation
-To assign a default configuration to a Geohash string deterministically without checking external state, the protocol maps the cell using a SHA-256 stable hash:
-$$\text{Primary}(u) = \text{SHA256}(\text{"1.0:"} + u + \text{":1.0"}) \bmod 304$$
+### 3.3 2D Coordinate-Based Modular Tessellation Grid
+To assign a primary configuration ID to a cell without any external database or neighbor coordinates, the protocol maps any Geohash cell of precision $P$ to its 2D discrete integer coordinates $(X, Y)$ and applies a modular shifting pattern, mathematically guaranteeing that adjacent cells never share the same primary standby configuration:
+$$Y = \text{Round}\left(\frac{\text{lat} + 90.0}{\text{lat\_height}}\right), \quad X = \text{Round}\left(\frac{\text{lon} + 180.0}{\text{lon\_width}}\right)$$
+$$\text{Primary}(u) = (Y \cdot 17 + X) \bmod 304$$
 
 ---
 
@@ -80,7 +81,7 @@ Input: lat, lon, precision, radius_km, K
 Output: profile_dictionary
 
 Let cell_geohash = EncodeGeohash(lat, lon, precision)
-Let primary_id = GetPrimaryByHash(cell_geohash)
+Let primary_id = GetPrimaryByTessellation(cell_geohash)
 
 If K <= 1:
     Return { geohash: cell_geohash, primary: primary_id, configurations: [primary_id] }
@@ -106,7 +107,7 @@ Initialize seen_configs = {primary_id}
 For each (dist, gh) in neighbors:
     If length(allocated_configs) >= K:
         Break
-    Let neigh_primary = GetPrimaryByHash(gh)
+    Let neigh_primary = GetPrimaryByTessellation(gh)
     If neigh_primary not in seen_configs:
         Add neigh_primary to allocated_configs
         Add neigh_primary to seen_configs

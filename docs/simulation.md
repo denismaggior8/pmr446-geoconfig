@@ -109,7 +109,7 @@ To guarantee scientific reproducibility and allow cross-implementation verificat
     "geohash_precision": { "type": "integer", "minimum": 1 },
     "radio_radius_km": { "type": "number", "minimum": 0.1 },
     "configuration_count": { "type": "integer", "const": 304 },
-    "primary_strategy": { "type": "string", "enum": ["coloring", "hash"] },
+    "primary_strategy": { "type": "string", "enum": ["coloring", "tessellation"] },
     "graph_metrics": {
       "type": "object",
       "required": [

@@ -82,12 +82,12 @@ Instead, compatibility is guaranteed via the intersection of their complete conf
 $$\mathcal{C}(u) = \{ \text{Primary}(u) \} \cup \text{NeighborConfigs}(u)$$
 
 ### Primary Assignment Strategies
-1. **Stable Hashing**:
-   Uses SHA-256 to hash the Geohash string deterministically to a configuration ID:
-   $$\text{Primary}(u) = \text{SHA256}(\text{"1.0:"} + u + \text{":1.0"}) \bmod 304$$
-   This is local, graph-free, and requires zero neighbor knowledge.
+1. **2D Coordinate-Based Modular Tessellation Grid**:
+   Maps any Geohash cell of precision $P$ to its discrete integer coordinates $(X, Y)$ and applies a modular shifting pattern:
+   $$\text{Primary}(u) = (Y \cdot 17 + X) \bmod 304$$
+   This is local, graph-free, and mathematically guarantees that adjacent cells never share the same primary configuration.
 2. **Alphabetical Greedy Graph Coloring**:
-   Colors the graph $G$ using the 304-color palette in a stable, alphabetical sorting of Geohashes. This mathematically guarantees that $\text{Primary}(u) \ne \text{Primary}(v)$ for all adjacent cells, maximizing local channel differentiation.
+   Colors the graph $G$ using the 304-color palette in a stable, alphabetical sorting of Geohashes. This is a global simulation alternative that also ensures local channel differentiation.
 
 ### Compatibility Allocation Strategy
 To expand configuration sets up to size $K$ to satisfy the core invariant:

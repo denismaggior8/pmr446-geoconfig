@@ -507,7 +507,7 @@
                 <div class="card card-green">
                     <div class="config-subtext">PRIMARY STANDBY CHANNEL</div>
                     <div class="config-badge" id="outPrimary">CH1 / 67.0 Hz</div>
-                    <div class="config-subtext" id="outPrimaryExplain">Derived from stable SHA-256 cell seed</div>
+                    <div class="config-subtext" id="outPrimaryExplain">Derived from 2D Modular Tessellation Grid</div>
                 </div>
 
                 <!-- Compatible Configurations List -->
@@ -526,8 +526,8 @@
                 <div class="section-title">📖 Protocol Math Context</div>
                 <div class="explainer-box">
                     <p>
-                        The primary configuration is computed via 
-                        <span class="formula-inline">SHA256(version:geohash:version) mod 304</span>.
+                        The primary configuration is computed via the 2D modular shift grid 
+                        <span class="formula-inline">(17Y + X) mod 304</span>.
                     </p>
                     <p>
                         Adjacent cells within the nominal radio range (shaded grey on map) are evaluated. Their primaries are sorted by Haversine distance ascending and loaded into the set up to capacity <span class="formula-inline">K</span>.
@@ -745,20 +745,19 @@
             return [channel_idx + 1, CTCSS_TONES[tone_idx]];
         }
 
-        // 2.6 SHA-256 stable hashing
-        async function getPrimaryByHash(geohash) {
-            const payload = "1.0:" + geohash + ":1.0";
-            const encoder = new TextEncoder();
-            const data = encoder.encode(payload);
-            const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-            const hashArray = new Uint8Array(hashBuffer);
-            
-            // Re-construct the first 8 big-endian bytes as BigInt
-            let val = 0n;
-            for (let i = 0; i < 8; i++) {
-                val = (val << 8n) | BigInt(hashArray[i]);
-            }
-            return Number(val % 304n);
+        // 2.6 Coordinate-based modular tessellation grid
+        function getPrimaryByTessellation(geohash) {
+            const [lat, lon, lat_err, lon_err] = decodeGeohash(geohash);
+            const lat_height = 2.0 * lat_err;
+            const lon_width = 2.0 * lon_err;
+
+            const Y = Math.round((lat + 90.0) / lat_height);
+            const X = Math.round((lon + 180.0) / lon_width);
+
+            // 2D grid modular shift (MX=1, MY=17)
+            let color_id = (Y * 17 + X) % 304;
+            if (color_id < 0) color_id += 304;
+            return color_id;
         }
 
         // 2.7 Neighbor local search grid
@@ -813,7 +812,7 @@
         // 2.8 Local Profile Generator Facade
         async function getRadioProfile(latitude, longitude, precision = 5, radio_radius_km = 10.0, k = 4) {
             const cell_geohash = encodeGeohash(latitude, longitude, precision);
-            const primary_id = await getPrimaryByHash(cell_geohash);
+            const primary_id = getPrimaryByTessellation(cell_geohash);
             const [prim_chan, prim_tone] = configFromId(primary_id);
             
             const neighbors = await getLocalNeighbors(latitude, longitude, precision, radio_radius_km);
@@ -843,7 +842,7 @@
             
             for (let n of reachable_neighbors) {
                 if (allocated_ids.length >= k) break;
-                const n_primary_id = await getPrimaryByHash(n.gh);
+                const n_primary_id = getPrimaryByTessellation(n.gh);
                 if (!seen_ids.has(n_primary_id)) {
                     allocated_ids.push(n_primary_id);
                     seen_ids.add(n_primary_id);
@@ -1034,7 +1033,7 @@
                     });
                 } else if (!has_overlap) {
                     // 2. In geographic range but spectral incompatibility
-                    const n_prim_id = await getPrimaryByHash(n.gh);
+                    const n_prim_id = getPrimaryByTessellation(n.gh);
                     const [n_chan, n_tone] = configFromId(n_prim_id);
                     const n_chan_freq = getChannelFreq(n_chan);
                     const n_tone_num = getToneNumber(n_tone);
