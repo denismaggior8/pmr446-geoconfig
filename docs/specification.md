@@ -1,0 +1,308 @@
+# GeoPMR446: Geographic Configuration Protocol for PMR446 Radios
+## Technical Specification and Standardization Proposal
+**Version:** 1.0.0  
+**Status:** Proposal / Draft Standard  
+
+---
+
+## Abstract
+
+This document outlines **GeoPMR446**, a decentralized, deterministic, and geographically aware configuration protocol for PMR446 (Private Mobile Radio, $446\text{ MHz}$) analog equipment. 
+
+The protocol maps any physical coordinate on Earth to a stable, compatible set of channel and squelch tone combinations without relying on central registries, database lookups, or network synchronization. By combining Geohash spatial partitioning, Haversine geometry, and stable cryptographic hashing, GeoPMR446 guarantees that any two adjacent users within a nominal $10\text{ km}$ communication radius share at least one common channel configuration, while geographically separated users automatically reuse configurations to minimize spectral congestion.
+
+---
+
+## 1. Introduction and Objectives
+
+PMR446 is a license-free personal radio service used widely across Europe. However, because it operates on a limited set of shared frequencies, users frequently suffer from co-channel interference or find themselves unable to establish communication due to misaligned squelch settings. 
+
+This standard addresses these challenges by introducing a decentralized spatial allocation protocol. The goals of **GeoPMR446** are:
+1. **Determinism**: The same geographic inputs and protocol version must always yield identical configuration sets on any device or language.
+2. **Infrastructure Independence**: No database, network service, or central registration is required.
+3. **Compatibility**: Fully compatible with legacy analog PMR446 equipment using standard Continuous Tone-Coded Squelch System (CTCSS) tones.
+4. **Spectral Reuse**: Efficient spatial packing allows distant cells to reuse frequencies while minimizing interference.
+
+```mermaid
+graph TD
+    A["Geographic Coordinate <br> (Lat / Lon / QTH)"] --> B["Geohash Cell Discretization <br> (configurable precision P)"]
+    B --> C["Cell-Local Deterministic Primary Configuration"]
+    B --> D["Identify Spatial Neighbors <br> (within nominal radius R)"]
+    D --> E["Gather Primary Configurations of Neighbors"]
+    C --> F["Configuration-Set Intersection <br> (Deterministic Set of Size K)"]
+    E --> F
+    F --> G["Deterministic PMR446 Profile <br> (Primary + K-1 Compatible Channels)"]
+```
+
+---
+
+## 2. Mathematical Definition of Configuration Space
+
+The analog PMR446 configuration space consists of two dimensions: RF frequency channel and CTCSS sub-audible tone.
+
+### 2.1 Frequency Channels
+Let $C$ be the set of standard PMR446 channels:
+$$C = \{1, 2, 3, 4, 5, 6, 7, 8\}$$
+
+### 2.2 Squelch System (CTCSS)
+Let $T$ be the ordered set of the 38 standard CTCSS tones represented in Hertz:
+$$T = \Big( 67.0, 71.9, 74.4, 77.0, 79.7, 82.5, 85.4, 88.5, 91.5, 94.8, 97.4, 100.0, 103.5, 107.2, 110.9, 114.8, 118.8, 123.0, 127.3, 131.8, 136.5, 141.3, 146.2, 151.4, 156.7, 162.2, 167.9, 173.8, 179.9, 186.2, 192.8, 203.5, 210.7, 218.1, 225.7, 233.6, 241.8, 250.3 \Big)$$
+
+The length of the CTCSS set is:
+$$|T| = 38$$
+
+### 2.3 Configuration Space Mapping
+The complete discrete configuration space $\mathcal{S}$ is the Cartesian product:
+$$\mathcal{S} = C \times T \quad \text{where} \quad |\mathcal{S}| = 8 \times 38 = 304$$
+
+Any configuration $s_i \in \mathcal{S}$ is represented as a tuple:
+$$s = (\text{channel}, \text{ctcss\_tone})$$
+
+To facilitate compact computation, storage, and index indexing, a bijective encoding function $f: C \times T \to \mathbb{Z}_{304}$ maps configurations to stable integer IDs:
+$$f(c, t_i) = (c - 1) \times 38 + i$$
+
+The decoding inverse function $f^{-1}: \mathbb{Z}_{304} \to C \times T$ is defined as:
+$$f^{-1}(\text{id}) = \left( \lfloor \text{id} / 38 \rfloor + 1, \,\, T_{\text{id} \bmod 38} \right)$$
+
+---
+
+## 3. Geographic Modeling and Discretization
+
+Physical space is discretized into discrete cells using Geohash, and distance geometry is modeled using the Haversine formula on a spherical earth.
+
+### 3.1 Geohash Discretization
+Geohash is a hierarchical spatial index that divides the Earth's surface into rectangular grid cells using binary interval partitioning. Coordinates are encoded into a Base32 string using the alphabet:
+$$\Sigma_{\text{base32}} = \text{"0123456789bcdefghjkmnpqrstuvwxyz"}$$
+
+The resolution of cells is determined by the geohash precision $P$ (the character length):
+- $P=5$ (default): Cell dimension $\approx 4.9\text{ km} \times 4.9\text{ km}$ at the equator.
+- $P=6$: Cell dimension $\approx 1.2\text{ km} \times 0.61\text{ km}$ at the equator.
+
+### 3.2 Distance Metric
+To preserve geometric accuracy over long ranges, the distance $d$ between two coordinates $(lat_1, lon_1)$ and $(lat_2, lon_2)$ is computed using the spherical **Haversine formula**:
+$$a = \sin^2\left(\frac{lat_2 - lat_1}{2}\right) + \cos(lat_1)\cos(lat_2)\sin^2\left(\frac{lon_2 - lon_1}{2}\right)$$
+$$c = 2 \arcsin(\sqrt{a})$$
+$$d = R_{\text{earth}} \times c$$
+
+Where the standard mean Earth radius is defined as:
+$$R_{\text{earth}} = 6371.0088\text{ km}$$
+
+---
+
+## 4. Geographic Graph Modeling
+
+To represent cell connectivity across any simulated region, the protocol models physical space as an undirected graph:
+$$G = (V, E)$$
+
+Where:
+- $V \subset \mathcal{H}_P$: The set of active Geohash cells of precision $P$.
+- $E$: The set of links connecting compatible cells:
+  $$E = \{ (u, v) \in V \times V \mid d_{\text{haversine}}(\text{center}(u), \text{center}(v)) \le R_{\text{radio}} \}$$
+
+Here, $\text{center}(u)$ returns the coordinate of the center of cell $u$, and $R_{\text{radio}}$ is the nominal communication radius (defaulting to $10.0\text{ km}$).
+
+```
+[Cell A] <=========== distance <= 10 km ===========> [Cell B]
+   |                                                    |
+   v                                                    v
+Configuration Set A                                  Configuration Set B
+{ CH3/77.0, CH7/67.0 }   --- Shared: CH7/67.0 ---    { CH5/88.5, CH7/67.0 }
+```
+
+---
+
+## 5. The Compatibility Invariant and Protocol Rules
+
+The core protocol requires that any two geographically compatible cells share at least one PMR446 configuration, guaranteeing that a radio link can always be established using the cell-local profile.
+
+### 5.1 The Compatibility Invariant
+Let $\mathcal{C}(u) \subset \mathcal{S}$ be the set of configurations allocated to cell $u$. For any edge $(u, v)$ in the graph:
+$$(u, v) \in E \implies \mathcal{C}(u) \cap \mathcal{C}(v) \ne \emptyset$$
+
+### 5.2 Rule 1: No Transitive Propagation
+To avoid a chain reaction where adjacent cells are forced to have identical configurations across long distances, **nearby cells do not necessarily share the same Primary configuration**.
+$$\text{Primary}(u) = \text{Primary}(v) \quad \text{is NOT required.}$$
+Instead, compatibility is guaranteed via the intersection of their complete configuration sets:
+$$\mathcal{C}(u) = \{ \text{Primary}(u) \} \cup \text{NeighborConfigs}(u)$$
+
+```
+A (CH3/77.0) ------- B (CH5/88.5) ------- C (CH2/123.0)
+|                     |                     |
+| Distance <= 10 km   | Distance <= 10 km   | Distance > 10 km (No link)
+v                     v                     v
+C(A) ∩ C(B) != Ø      C(B) ∩ C(C) != Ø      C(A) ∩ C(C) can be empty (Ø)
+(Transitive propagation avoided: Primary A does not equal Primary C)
+```
+
+---
+
+## 6. Reference Algorithms (Pseudocode)
+
+This section provides the official, deterministic reference algorithms for compliant implementations.
+
+### 6.1 Coordinate Discretization: Geohash Encoding
+
+```text
+Algorithm: EncodeGeohash
+Input: latitude, longitude, precision
+Output: geohash_string
+
+Let BASE32 = "0123456789bcdefghjkmnpqrstuvwxyz"
+Let lat_min = -90.0, lat_max = 90.0
+Let lon_min = -180.0, lon_max = 180.0
+
+Initialize geohash = []
+Let total_bits = precision * 5
+Initialize current_val = 0
+
+For bit_idx from 0 to total_bits - 1:
+    If bit_idx is even:
+        Let mid = (lon_min + lon_max) / 2
+        If longitude >= mid:
+            current_val = (current_val << 1) | 1
+            lon_min = mid
+        Else:
+            current_val = (current_val << 1) | 0
+            lon_max = mid
+    Else:
+        Let mid = (lat_min + lat_max) / 2
+        If latitude >= mid:
+            current_val = (current_val << 1) | 1
+            lat_min = mid
+        Else:
+            current_val = (current_val << 1) | 0
+            lat_max = mid
+
+    If (bit_idx + 1) mod 5 == 0:
+        Append BASE32[current_val] to geohash
+        current_val = 0
+
+Return concatenate(geohash)
+```
+
+---
+
+### 6.2 Stable Hash Primary Assignment
+To assign a primary configuration ID to a cell without any external database or neighbor coordinates, compliant devices MUST hash the Geohash string using a stable cryptographic hash.
+
+```text
+Algorithm: GetPrimaryByHash
+Input: geohash_str, algorithm_version = "1.0", config_version = "1.0"
+Output: configuration_id (integer 0 to 303)
+
+Let payload = concatenate(algorithm_version, ":", geohash_str, ":", config_version)
+Let sha_hash = SHA256(payload)  # Returns 32-byte array
+Let first_8_bytes = sha_hash[0..7]
+Let int_value = BigEndianInteger(first_8_bytes)
+
+Return int_value mod 304
+```
+
+---
+
+### 6.3 Local Neighborhood Expansion
+To allow a standalone radio device to build its configuration set $\mathcal{C}(u)$ of size $K$ without building a global regional graph, it resolves neighboring Geohash cells geometrically.
+
+```text
+Algorithm: ResolveLocalProfile
+Input: lat, lon, precision, radius_km, K
+Output: profile_dictionary
+
+Let cell_geohash = EncodeGeohash(lat, lon, precision)
+Let primary_id = GetPrimaryByHash(cell_geohash)
+
+If K <= 1:
+    Return { geohash: cell_geohash, primary: primary_id, configurations: [primary_id] }
+
+# Determine bounding limits
+Let lat_step = radius_km / 111.1
+Let cos_lat = cos(radians(lat))
+Let lon_step = lat_step / max(0.01, cos_lat)
+
+# Decode cell errors to step grid
+Let cell_lat, cell_lon, lat_err, lon_err = DecodeGeohash(cell_geohash)
+Let step_lat_deg = 2.0 * lat_err
+Let step_lon_deg = 2.0 * lon_err
+
+Let lat_bound = ceiling(lat_step / step_lat_deg) + 1
+Let lon_bound = ceiling(lon_step / step_lon_deg) + 1
+
+Initialize neighbors = EmptySet()
+
+For i from -lat_bound to lat_bound:
+    For j from -lon_bound to lon_bound:
+        Let test_lat = lat + i * step_lat_deg
+        Let test_lon = lon + j * step_lon_deg
+        
+        Let gh = EncodeGeohash(test_lat, test_lon, precision)
+        If gh != cell_geohash:
+            Let gh_lat, gh_lon = CenterCoordinates(gh)
+            Let dist = HaversineDistance(lat, lon, gh_lat, gh_lon)
+            If dist <= radius_km:
+                neighbors.add( (dist, gh) )
+
+# Sort neighbors primarily by distance (ascending), secondarily by geohash (alphabetical)
+Sort neighbors
+
+Initialize allocated_configs = [primary_id]
+Initialize seen_configs = {primary_id}
+
+For each (dist, gh) in neighbors:
+    If length(allocated_configs) >= K:
+        Break
+    Let neigh_primary = GetPrimaryByHash(gh)
+    If neigh_primary not in seen_configs:
+        Add neigh_primary to allocated_configs
+        Add neigh_primary to seen_configs
+
+Return {
+    geohash: cell_geohash,
+    primary: primary_id,
+    configurations: allocated_configs
+}
+```
+
+---
+
+### 6.4 Alphabetical Greedy Graph Coloring (Global Simulator Variant)
+For simulations or centralized optimization where a full graph is constructed, compliance testing may employ an alphabetical greedy coloring algorithm to assign primary configurations.
+
+```text
+Algorithm: AllocatePrimaryColoring
+Input: nodes (set of geohashes), adjacency (map of node to neighbor set)
+Output: primary_assignments (map of node to config_id)
+
+Let sorted_nodes = SortAlphabetically(nodes)
+Initialize primary_assignments = EmptyMap()
+
+For each node in sorted_nodes:
+    Let neighbor_colors = EmptySet()
+    For each neighbor in adjacency[node]:
+        If neighbor in primary_assignments:
+            neighbor_colors.add(primary_assignments[neighbor])
+            
+    # Find smallest configuration ID not used by neighbors
+    Let assigned_color = -1
+    For color_id from 0 to 303:
+        If color_id not in neighbor_colors:
+            assigned_color = color_id
+            Break
+            
+    If assigned_color == -1:
+        # Fallback to local hash if neighbor degrees exceed 304 (extremely rare)
+        assigned_color = GetPrimaryByHash(node)
+        
+    primary_assignments[node] = assigned_color
+
+Return primary_assignments
+```
+
+---
+
+## 7. Compliance and Verification Criteria
+
+An implementation of GeoPMR446 is considered fully compliant if it satisfies the following criteria:
+1. **Bijective Invariant**: Config ID 0 maps to (CH1, CTCSS 67.0) and Config ID 303 maps to (CH8, CTCSS 250.3).
+2. **Determinism Invariant**: Two runs of any reference algorithm on identical inputs MUST return identical configuration allocations.
+3. **Local/Global Convergence**: Standalone profiles computed locally using `ResolveLocalProfile` must exactly match profiles computed from a globally bounded geographic graph.
+4. **Compatibility Invariant**: For any two nodes $A$ and $B$, if $d(A, B) \le R_{\text{radio}}$, then their configuration sets MUST overlap ($\mathcal{C}(A) \cap \mathcal{C}(B) \ne \emptyset$) for the minimum compliant $K$.
