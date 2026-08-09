@@ -1061,18 +1061,30 @@
                     const shared_tone_num = getToneNumber(shared_tone_val);
                     const shared_chan_freq = getChannelFreq(shared_chan);
 
+                    // Fetch neighbor's standalone primary standby channel
+                    const n_prim_id = getPrimaryByTessellation(n.gh);
+                    const [n_chan, n_tone] = configFromId(n_prim_id);
+                    const n_tone_num = getToneNumber(n_tone);
+
                     poly.bindPopup(`
                         <div class="popup-title">Cell: ${n.gh} <span style="color:#34d399; font-size:0.75rem; font-weight:normal;">(Reachable & Link Compatible)</span></div>
                         <div class="popup-text" style="font-size:0.85rem; line-height:1.5;">
-                            Distance to closest boundary: <b>${n.dist.toFixed(2)} km</b> (In Range!)<br>
-                            Shared Communication Channel:<br>
-                            &bull; Channel: <b>CH${shared_chan}</b> (${shared_chan_freq.toFixed(5)} MHz)<br>
-                            &bull; Squelch: <b>Tone #${shared_tone_num}</b> (${shared_tone_val.toFixed(1)} Hz)<br>
+                            Distance to closest boundary: <b>${n.dist.toFixed(2)} km</b> (In Range!)<br><br>
+                            <b>Neighbor's Standby Monitor:</b><br>
+                            &bull; Channel: <span style="color:#34d399; font-weight:600;">CH${n_chan}</span> (Tone #${n_tone_num})<br><br>
+                            <b>Shared Link Channel:</b><br>
+                            &bull; Channel: <span style="color:#38bdf8; font-weight:600;">CH${shared_chan}</span> (${shared_chan_freq.toFixed(5)} MHz)<br>
+                            &bull; Squelch: <b>Tone #${shared_tone_num}</b> (${shared_tone_val.toFixed(1)} Hz)<br><br>
                             <span style="font-size:0.75rem; color:var(--text-muted);">Verified compatible channel intersection in C(A) &cap; C(B).</span>
                         </div>
                     `);
 
-                    poly.bindTooltip(`CH${shared_chan} / T#${shared_tone_num}`, {
+                    poly.bindTooltip(`
+                        <div style="text-align: center; line-height: 1.4; padding: 2px 0;">
+                            <span style="color: #34d399; font-weight: 700;">Pri: CH${n_chan}/T#${n_tone_num}</span><br>
+                            <span style="color: #38bdf8; font-weight: 700;">Lnk: CH${shared_chan}/T#${shared_tone_num}</span>
+                        </div>
+                    `, {
                         permanent: true,
                         direction: 'center',
                         className: 'cell-tooltip'
