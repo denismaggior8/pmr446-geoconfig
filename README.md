@@ -1,7 +1,7 @@
-# GeoPMR446: Geographic Configuration Protocol for PMR446 Radios
+# PMR446 GeoConfig: Geographic Configuration Protocol for PMR446 Radios
 ## Official Standard Proposal and Protocol Specification
 
-Welcome to the official repository for the **GeoPMR446 Geographic Configuration Protocol**. 
+Welcome to the official repository for the **PMR446 GeoConfig - Geographic Configuration Protocol**. 
 
 This repository contains the formal technical standard and protocol specification for decentralized, deterministic, and geographically aware allocation of channels and sub-audible CTCSS squelch tones on PMR446 radio equipment.
 
