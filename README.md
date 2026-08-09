@@ -29,6 +29,11 @@ A (CH3/77.0) <=== Link ===> B (CH5/88.5) <=== Link ===> C (CH2/123.0)
   Link A-C compatibility: No shared configuration (Transitive propagation prevented!)
 ```
 
+### 1.1 The Golden Operating Rule (SOP)
+To establish communication completely ad-hoc and offline, all radio operators observe a simple dual-rule standard operating procedure:
+1. **The Standby (Monitoring) Rule**: You **MUST** set your radio receiver to monitor your local cell's **Primary** configuration by default (this acts as your spatial calling inbox).
+2. **The Outbound Calling Rule**: To contact an operator in a nearby cell, temporarily tune your transmitter to **their** cell's **Primary** configuration, call them, and then coordinate moving to a mutual standby frequency if needed.
+
 ---
 
 ## 2. Repository File Structure
@@ -115,7 +120,25 @@ Return {
 
 ---
 
-## 5. Further Reading
+## 5. Interactive Global Map Explorer
 
-- [docs/specification.md](file:///Users/denismaggiorotto/Documents/Progetti/Personali/repos/pmr446-geoconfig/docs/specification.md): Technical details of geohash parsing, Haversine, primary allocators, coloring, and neighbor expansion algorithms.
-- [docs/simulation.md](file:///Users/denismaggiorotto/Documents/Progetti/Personali/repos/pmr446-geoconfig/docs/simulation.md): Complete testing frameworks, Italy bounding boxes, and compliance evaluation rules.
+To allow engineers, designers, and hobbyists to explore the protocol's frequency allocations globally in real-time, we provide a standalone, browser-based **[Visual Specification Explorer](file:///Users/denismaggiorotto/Documents/Progetti/Personali/repos/pmr446-geoconfig/docs/explorer.html)**.
+
+### How to use it:
+1. Open the file **[`docs/explorer.html`](file:///Users/denismaggiorotto/Documents/Progetti/Personali/repos/pmr446-geoconfig/docs/explorer.html)** directly in any modern web browser.
+2. Click anywhere on the dark-theme worldwide map to select a physical coordinate.
+3. The dashboard instantly computes:
+   - The corresponding **Maidenhead Locator (QTH)** (e.g. `JN45AB`).
+   - The corresponding **Geohash cell** (e.g. `u0j8q`).
+   - The cell's primary configuration (frequency + CTCSS sub-tone) calculated via client-side **SHA-256 stable hashing**.
+   - The surrounding **spatial neighbors** (within $R_{\text{radio}}$), drawn as light blue rectangles, whose primary channels populate the local intersection compatibility set of size $K$.
+4. Drag the sliders to see how Geohash precision $P$, range $R$, and set size $K$ modify allocations dynamically on-the-fly!
+
+---
+
+## 6. Further Reading
+
+- **[docs/specification.md](file:///Users/denismaggiorotto/Documents/Progetti/Personali/repos/pmr446-geoconfig/docs/specification.md)**: Technical details of geohash parsing, Haversine, primary allocators, coloring, and neighbor expansion reference algorithms.
+- **[docs/simulation.md](file:///Users/denismaggiorotto/Documents/Progetti/Personali/repos/pmr446-geoconfig/docs/simulation.md)**: Complete testing frameworks, Italy bounding boxes, compliance validation, and standard JSON schemas.
+- **[docs/explorer.html](file:///Users/denismaggiorotto/Documents/Progetti/Personali/repos/pmr446-geoconfig/docs/explorer.html)**: Interactive, browser-based visual map explorer.
+

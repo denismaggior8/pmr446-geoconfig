@@ -44,9 +44,65 @@ The analog PMR446 configuration space consists of two dimensions: RF frequency c
 Let $C$ be the set of standard PMR446 channels:
 $$C = \{1, 2, 3, 4, 5, 6, 7, 8\}$$
 
+The physical carrier frequencies corresponding to each channel number are defined in the following table (12.5 kHz spacing with 6.25 kHz channel boundary offset):
+
+| Channel Number | Carrier Frequency (MHz) |
+| :---: | :--- |
+| **1** | 446.00625 |
+| **2** | 446.01875 |
+| **3** | 446.03125 |
+| **4** | 446.04375 |
+| **5** | 446.05625 |
+| **6** | 446.06875 |
+| **7** | 446.08125 |
+| **8** | 446.09375 |
+
 ### 2.2 Squelch System (CTCSS)
 Let $T$ be the ordered set of the 38 standard CTCSS tones represented in Hertz:
-$$T = \Big( 67.0, 71.9, 74.4, 77.0, 79.7, 82.5, 85.4, 88.5, 91.5, 94.8, 97.4, 100.0, 103.5, 107.2, 110.9, 114.8, 118.8, 123.0, 127.3, 131.8, 136.5, 141.3, 146.2, 151.4, 156.7, 162.2, 167.9, 173.8, 179.9, 186.2, 192.8, 203.5, 210.7, 218.1, 225.7, 233.6, 241.8, 250.3 \Big)$$
+$$T = \Big( T_0, T_1, \ldots, T_{37} \Big)$$
+
+The physical sub-audible tone frequencies and their corresponding mathematical indexes and common tone numbers are specified in the table below:
+
+| Tone Number | Array Index ($i$) | Squelch Frequency (Hz) |
+| :---: | :---: | :--- |
+| **1** | 0 | 67.0 |
+| **2** | 1 | 71.9 |
+| **3** | 2 | 74.4 |
+| **4** | 3 | 77.0 |
+| **5** | 4 | 79.7 |
+| **6** | 5 | 82.5 |
+| **7** | 6 | 85.4 |
+| **8** | 7 | 88.5 |
+| **9** | 8 | 91.5 |
+| **10** | 9 | 94.8 |
+| **11** | 10 | 97.4 |
+| **12** | 11 | 100.0 |
+| **13** | 12 | 103.5 |
+| **14** | 13 | 107.2 |
+| **15** | 14 | 110.9 |
+| **16** | 15 | 114.8 |
+| **17** | 16 | 118.8 |
+| **18** | 17 | 123.0 |
+| **19** | 18 | 127.3 |
+| **20** | 19 | 131.8 |
+| **21** | 20 | 136.5 |
+| **22** | 21 | 141.3 |
+| **23** | 22 | 146.2 |
+| **24** | 23 | 151.4 |
+| **25** | 24 | 156.7 |
+| **26** | 25 | 162.2 |
+| **27** | 26 | 167.9 |
+| **28** | 27 | 173.8 |
+| **29** | 28 | 179.9 |
+| **30** | 29 | 186.2 |
+| **31** | 30 | 192.8 |
+| **32** | 31 | 203.5 |
+| **33** | 32 | 210.7 |
+| **34** | 33 | 218.1 |
+| **35** | 34 | 225.7 |
+| **36** | 35 | 233.6 |
+| **37** | 36 | 241.8 |
+| **38** | 37 | 250.3 |
 
 The length of the CTCSS set is:
 $$|T| = 38$$
@@ -133,6 +189,19 @@ v                     v                     v
 C(A) ∩ C(B) != Ø      C(B) ∩ C(C) != Ø      C(A) ∩ C(C) can be empty (Ø)
 (Transitive propagation avoided: Primary A does not equal Primary C)
 ```
+
+### 5.3 Rule 2: Standby Monitoring Standard (The Golden Operating Rule)
+To establish communication completely ad-hoc and without coordination, all compliant radio operators must observe the following dual-rule operating standards:
+
+1. **The Standby (Monitoring) Rule**:
+   Every active operator **MUST** set their receiver to monitor their local cell's **Primary Standby** configuration by default.
+   $$\text{Active Receiver State}(u) = \text{Primary}(u)$$
+   *Rationale:* This acts as a decentralized spatial "calling channel" or "inbox." Your squelch will remain quiet from noise, but any nearby operator can reach you by calling your cell's designated Primary frequency.
+
+2. **The Outbound Calling Rule**:
+   To contact an operator in a nearby cell $v$, you **MUST** temporarily tune your transmitter and receiver to **their** cell's **Primary** configuration, initiate the call, and wait for them to answer.
+   $$\text{Transmitter State}(u \to v) = \text{Primary}(v)$$
+   *Rationale:* Once contact is successfully established, the two operators can continue talking on $\text{Primary}(v)$, or they may agree to move ("QSY") to any other mutual configuration in their intersection set $\mathcal{C}(u) \cap \mathcal{C}(v)$ to free up the calling channel.
 
 ---
 

@@ -1,0 +1,1232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PMR446 GeoConfig Protocol Specification Explorer</title>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    
+    <!-- Leaflet Map CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <style>
+        :root {
+            --bg-main: #0b0f19;
+            --bg-panel: rgba(17, 24, 39, 0.85);
+            --border-glow: rgba(56, 189, 248, 0.2);
+            --accent-blue: #38bdf8;
+            --accent-green: #34d399;
+            --accent-purple: #a78bfa;
+            --text-primary: #f3f4f6;
+            --text-muted: #9ca3af;
+            --font-main: 'Inter', sans-serif;
+            --font-title: 'Outfit', sans-serif;
+            --font-code: 'Fira Code', monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: var(--font-main);
+            background-color: var(--bg-main);
+            color: var(--text-primary);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Header Style */
+        header {
+            background-color: #0c111d;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .header-title-group h1 {
+            font-family: var(--font-title);
+            font-size: 1.5rem;
+            font-weight: 700;
+            background: linear-gradient(to right, #38bdf8, #818cf8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .header-title-group p {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-top: 0.2rem;
+        }
+
+        .badge {
+            background: rgba(56, 189, 248, 0.1);
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            color: var(--accent-blue);
+            padding: 0.25rem 0.6rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        /* Container Layout */
+        .main-container {
+            display: flex;
+            flex: 1;
+            position: relative;
+            height: calc(100vh - 65px);
+        }
+
+        #map {
+            flex: 1;
+            height: 100%;
+            z-index: 1;
+        }
+
+        /* Side Dashboard Card Style */
+        .sidebar {
+            width: 420px;
+            background: var(--bg-panel);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-right: 1px solid rgba(255, 255, 255, 0.05);
+            display: flex;
+            flex-direction: column;
+            z-index: 10;
+            box-shadow: 10px 0 30px rgba(0,0,0,0.5);
+            overflow-y: auto;
+        }
+
+        .section {
+            padding: 1.5rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .section-title {
+            font-family: var(--font-title);
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        /* Search Section */
+        .search-group {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .search-group input {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--text-primary);
+            padding: 0.6rem 1rem;
+            border-radius: 6px;
+            font-family: var(--font-main);
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .search-group input:focus {
+            border-color: var(--accent-blue);
+        }
+
+        .search-group button {
+            background: var(--accent-blue);
+            border: none;
+            color: #0b0f19;
+            padding: 0.6rem 1.2rem;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: filter 0.2s;
+        }
+
+        .search-group button:hover {
+            filter: brightness(1.1);
+        }
+
+        /* Sliders / Control Section */
+        .control-group {
+            margin-bottom: 1rem;
+        }
+
+        .control-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-bottom: 0.4rem;
+        }
+
+        .control-label span.val {
+            color: var(--accent-blue);
+            font-weight: 600;
+        }
+
+        .control-group input[type="range"] {
+            width: 100%;
+            accent-color: var(--accent-blue);
+        }
+
+        /* Location Details Display */
+        .loc-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        .loc-box {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            padding: 0.75rem;
+        }
+
+        .loc-box-lbl {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.25rem;
+        }
+
+        .loc-box-val {
+            font-family: var(--font-code);
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--accent-blue);
+        }
+
+        /* Configurations Cards */
+        .card {
+            background: linear-gradient(135deg, rgba(56, 189, 248, 0.05) 0%, rgba(255,255,255,0.01) 100%);
+            border: 1px solid var(--border-glow);
+            border-radius: 12px;
+            padding: 1.25rem;
+            margin-bottom: 1rem;
+            position: relative;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: var(--accent-blue);
+            border-top-left-radius: 12px;
+            border-bottom-left-radius: 12px;
+        }
+
+        .card-green {
+            background: linear-gradient(135deg, rgba(52, 211, 153, 0.05) 0%, rgba(255,255,255,0.01) 100%);
+            border-color: rgba(52, 211, 153, 0.2);
+        }
+
+        .card-green::before {
+            background: var(--accent-green);
+        }
+
+        .config-badge {
+            font-size: 1.5rem;
+            font-family: var(--font-title);
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 0.25rem;
+        }
+
+        .config-subtext {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        /* Config list table-like layout */
+        .config-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .config-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.6rem 0.75rem;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid rgba(255,255,255,0.05);
+            border-radius: 6px;
+            font-size: 0.9rem;
+        }
+
+        .config-row.primary-row {
+            border-color: rgba(52, 211, 153, 0.3);
+            background: rgba(52, 211, 153, 0.03);
+        }
+
+        .config-row-lbl {
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .p-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent-green);
+            display: inline-block;
+        }
+
+        .s-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent-blue);
+            display: inline-block;
+        }
+
+        .config-row-val {
+            font-family: var(--font-code);
+            font-weight: 600;
+        }
+
+        /* Explainer Section */
+        .explainer-box {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            line-height: 1.5;
+            background: rgba(255, 255, 255, 0.01);
+            border-radius: 8px;
+            padding: 1rem;
+            border: 1px dashed rgba(255, 255, 255, 0.05);
+        }
+
+        .explainer-box p {
+            margin-bottom: 0.5rem;
+        }
+
+        .explainer-box p:last-child {
+            margin-bottom: 0;
+        }
+
+        .formula-inline {
+            font-family: var(--font-code);
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--accent-blue);
+            padding: 0.1rem 0.3rem;
+            border-radius: 4px;
+        }
+
+        /* Popups */
+        .leaflet-popup-content-wrapper {
+            background: #0c111d !important;
+            color: var(--text-primary) !important;
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            border-radius: 8px !important;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5) !important;
+        }
+        
+        .leaflet-popup-tip {
+            background: #0c111d !important;
+            border: 1px solid rgba(56, 189, 248, 0.3);
+        }
+
+        .popup-title {
+            font-family: var(--font-title);
+            font-weight: 600;
+            color: var(--accent-blue);
+            font-size: 1rem;
+            margin-bottom: 0.5rem;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            padding-bottom: 0.25rem;
+        }
+
+        .popup-text {
+            font-size: 0.85rem;
+            color: var(--text-primary);
+            line-height: 1.4;
+        }
+
+        /* Tooltips */
+        .cell-tooltip {
+            background: rgba(12, 17, 29, 0.85) !important;
+            border: 1px solid rgba(56, 189, 248, 0.4) !important;
+            color: #f3f4f6 !important;
+            font-family: var(--font-code) !important;
+            font-size: 0.7rem !important;
+            font-weight: 600 !important;
+            border-radius: 4px !important;
+            padding: 2px 6px !important;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3) !important;
+            white-space: nowrap;
+        }
+
+        .active-cell-tooltip {
+            background: rgba(12, 17, 29, 0.85) !important;
+            border: 1px solid rgba(52, 211, 153, 0.5) !important;
+            color: #34d399 !important;
+            font-family: var(--font-code) !important;
+            font-size: 0.75rem !important;
+            font-weight: 700 !important;
+            border-radius: 4px !important;
+            padding: 3px 8px !important;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4) !important;
+            white-space: nowrap;
+        }
+
+        .leaflet-tooltip-left:before,
+        .leaflet-tooltip-right:before,
+        .leaflet-tooltip-top:before,
+        .leaflet-tooltip-bottom:before {
+            display: none !important; /* Hide ugly standard tooltip arrow pointer */
+        }
+
+        .unreachable-tooltip {
+            background: rgba(239, 68, 68, 0.08) !important;
+            border: 1px dashed rgba(239, 68, 68, 0.3) !important;
+            color: rgba(239, 68, 68, 0.6) !important;
+            font-family: var(--font-code) !important;
+            font-size: 0.65rem !important;
+            font-weight: 500 !important;
+            border-radius: 4px !important;
+            padding: 1px 4px !important;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.2) !important;
+            white-space: nowrap;
+        }
+
+        .incompatible-tooltip {
+            background: rgba(12, 17, 29, 0.85) !important;
+            border: 1px dashed rgba(234, 179, 8, 0.5) !important;
+            color: #facc15 !important;
+            font-family: var(--font-code) !important;
+            font-size: 0.65rem !important;
+            font-weight: 600 !important;
+            border-radius: 4px !important;
+            padding: 2px 6px !important;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3) !important;
+            white-space: nowrap;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header -->
+    <header>
+        <div class="header-title-group">
+            <h1>PMR446 GeoConfig Visual Specification Explorer</h1>
+            <p>Decentralized deterministic spatial channel-allocation protocol</p>
+        </div>
+        <div class="badge">Standard Compliance v1.0</div>
+    </header>
+
+    <!-- Main Workspace -->
+    <div class="main-container">
+        
+        <!-- Sidebar Dashboard -->
+        <div class="sidebar">
+            
+            <!-- Locator Search -->
+            <div class="section">
+                <div class="section-title">🔍 Location Query</div>
+                <div class="search-group">
+                    <input type="text" id="searchInput" placeholder="Maidenhead (JN45AB) or Lat, Lon..." value="JN45AB" style="flex: 1;">
+                    <button id="searchBtn" style="padding: 0.6rem 0.9rem;">Locate</button>
+                    <button id="geoBtn" title="Use current physical location" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: var(--accent-blue); padding: 0.6rem; border-radius: 6px; cursor: pointer; transition: background 0.2s; display: flex; align-items: center; justify-content: center;">📍</button>
+                </div>
+            </div>
+
+            <!-- Algorithm Parameters -->
+            <div class="section">
+                <div class="section-title">⚙️ Algorithm Parameters</div>
+                
+                <div class="control-group">
+                    <div class="control-label">
+                        <span>Geohash Precision (P)</span>
+                        <span id="lblPrecision" class="val">5 chars</span>
+                    </div>
+                    <input type="range" id="paramPrecision" min="4" max="7" value="5" step="1">
+                </div>
+
+                <div class="control-group">
+                    <div class="control-label">
+                        <span>Radio Range (R)</span>
+                        <span id="lblRadius" class="val">10.0 km</span>
+                    </div>
+                    <input type="range" id="paramRadius" min="5" max="30" value="10" step="1">
+                </div>
+
+                <div class="control-group">
+                    <div class="control-label">
+                        <span>Set Capacity (K)</span>
+                        <span id="lblK" class="val">4 configs</span>
+                    </div>
+                    <input type="range" id="paramK" min="1" max="8" value="4" step="1">
+                </div>
+            </div>
+
+            <!-- Profile Dashboard -->
+            <div class="section">
+                <div class="section-title">📊 Cell Profile Output</div>
+                
+                <div class="loc-grid">
+                    <div class="loc-box">
+                        <div class="loc-box-lbl">Maidenhead QTH</div>
+                        <div class="loc-box-val" id="outLocator">-</div>
+                    </div>
+                    <div class="loc-box">
+                        <div class="loc-box-lbl">Geohash Cell</div>
+                        <div class="loc-box-val" id="outGeohash">-</div>
+                    </div>
+                </div>
+
+                <!-- Primary Display Card -->
+                <div class="card card-green">
+                    <div class="config-subtext">PRIMARY STANDBY CHANNEL</div>
+                    <div class="config-badge" id="outPrimary">CH1 / 67.0 Hz</div>
+                    <div class="config-subtext" id="outPrimaryExplain">Derived from stable SHA-256 cell seed</div>
+                </div>
+
+                <!-- Compatible Configurations List -->
+                <div class="config-list-container" style="margin-top: 1rem;">
+                    <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem; font-weight: 600; text-transform: uppercase;">
+                        Allocated Compatible Set (Max K)
+                    </div>
+                    <div class="config-list" id="outConfigList">
+                        <!-- Dynamic config rows go here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mathematical Explanation -->
+            <div class="section" style="border-bottom: none;">
+                <div class="section-title">📖 Protocol Math Context</div>
+                <div class="explainer-box">
+                    <p>
+                        The primary configuration is computed via 
+                        <span class="formula-inline">SHA256(version:geohash:version) mod 304</span>.
+                    </p>
+                    <p>
+                        Adjacent cells within the nominal radio range (shaded grey on map) are evaluated. Their primaries are sorted by Haversine distance ascending and loaded into the set up to capacity <span class="formula-inline">K</span>.
+                    </p>
+                    <p>
+                        This guarantees that any two overlapping cells share at least one common standby config, while avoiding global transitive lock-in!
+                    </p>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Full-Screen Interactive Leaflet Map -->
+        <div id="map"></div>
+
+    </div>
+
+    <!-- Leaflet Map JS Engine -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <script>
+        // --- 1. PMR446 Standard Constants ---
+        const CTCSS_TONES = [
+            67.0, 71.9, 74.4, 77.0, 79.7, 82.5, 85.4, 88.5, 91.5, 94.8,
+            97.4, 100.0, 103.5, 107.2, 110.9, 114.8, 118.8, 123.0, 127.3, 131.8,
+            136.5, 141.3, 146.2, 151.4, 156.7, 162.2, 167.9, 173.8, 179.9, 186.2,
+            192.8, 203.5, 210.7, 218.1, 225.7, 233.6, 241.8, 250.3
+        ];
+
+        const CHANNEL_FREQS = [
+            446.00625, 446.01875, 446.03125, 446.04375,
+            446.05625, 446.06875, 446.08125, 446.09375
+        ];
+
+        function getChannelFreq(chanNum) {
+            return CHANNEL_FREQS[chanNum - 1];
+        }
+
+        function getToneNumber(toneVal) {
+            const idx = CTCSS_TONES.indexOf(toneVal);
+            return idx !== -1 ? idx + 1 : null;
+        }
+        
+        const BASE32 = "0123456789bcdefghjkmnpqrstuvwxyz";
+        const BASE32_MAP = {};
+        for (let i = 0; i < BASE32.length; i++) {
+            BASE32_MAP[BASE32[i]] = i;
+        }
+
+        // --- 2. Core Protocol Reference Algorithms ---
+
+        // 2.1 Geohash encoding
+        function encodeGeohash(latitude, longitude, precision = 5) {
+            let lat_min = -90.0, lat_max = 90.0;
+            let lon_min = -180.0, lon_max = 180.0;
+            let geohash = "";
+            let total_bits = precision * 5;
+            let current_val = 0;
+            
+            for (let bit_idx = 0; bit_idx < total_bits; bit_idx++) {
+                if (bit_idx % 2 === 0) {
+                    let mid = (lon_min + lon_max) / 2;
+                    if (longitude >= mid) {
+                        current_val = (current_val << 1) | 1;
+                        lon_min = mid;
+                    } else {
+                        current_val = (current_val << 1) | 0;
+                        lon_max = mid;
+                    }
+                } else {
+                    let mid = (lat_min + lat_max) / 2;
+                    if (latitude >= mid) {
+                        current_val = (current_val << 1) | 1;
+                        lat_min = mid;
+                    } else {
+                        current_val = (current_val << 1) | 0;
+                        lat_max = mid;
+                    }
+                }
+                
+                if ((bit_idx + 1) % 5 === 0) {
+                    geohash += BASE32[current_val];
+                    current_val = 0;
+                }
+            }
+            return geohash;
+        }
+
+        // 2.2 Geohash decoding
+        function decodeGeohash(geohash) {
+            geohash = geohash.toLowerCase();
+            let lat_min = -90.0, lat_max = 90.0;
+            let lon_min = -180.0, lon_max = 180.0;
+            let is_lon = true;
+            
+            for (let i = 0; i < geohash.length; i++) {
+                let char = geohash[i];
+                let val = BASE32_MAP[char];
+                if (val === undefined) throw new Error("Invalid geohash character");
+                
+                for (let mask of [16, 8, 4, 2, 1]) {
+                    let bit = (val & mask) ? 1 : 0;
+                    if (is_lon) {
+                        let mid = (lon_min + lon_max) / 2;
+                        if (bit) {
+                            lon_min = mid;
+                        } else {
+                            lon_max = mid;
+                        }
+                    } else {
+                        let mid = (lat_min + lat_max) / 2;
+                        if (bit) {
+                            lat_min = mid;
+                        } else {
+                            lat_max = mid;
+                        }
+                    }
+                    is_lon = !is_lon;
+                }
+            }
+            
+            let lat = (lat_min + lat_max) / 2;
+            let lon = (lon_min + lon_max) / 2;
+            let lat_err = (lat_max - lat_min) / 2;
+            let lon_err = (lon_max - lon_min) / 2;
+            return [lat, lon, lat_err, lon_err];
+        }
+
+        function getCenter(geohash) {
+            const [lat, lon] = decodeGeohash(geohash);
+            return [lat, lon];
+        }
+
+        // 2.3 Maidenhead Locator converter
+        function locatorToLatLon(locator) {
+            locator = locator.trim().toUpperCase();
+            if (!/^[A-R]{2}[0-9]{2}([A-X]{2})?$/.test(locator)) {
+                throw new Error("Invalid locator format. Use JN45 or JN45AB.");
+            }
+            
+            let lon_field = locator.charCodeAt(0) - 65;
+            let lat_field = locator.charCodeAt(1) - 65;
+            let lon = -180.0 + lon_field * 20.0;
+            let lat = -90.0 + lat_field * 10.0;
+            
+            let lon_square = parseInt(locator[2]);
+            let lat_square = parseInt(locator[3]);
+            lon += lon_square * 2.0;
+            lat += lat_square * 1.0;
+            
+            if (locator.length === 6) {
+                let lon_sub = locator.charCodeAt(4) - 65;
+                let lat_sub = locator.charCodeAt(5) - 65;
+                let lon_step = 2.0 / 24.0;
+                let lat_step = 1.0 / 24.0;
+                lon += lon_sub * lon_step + lon_step / 2.0;
+                lat += lat_sub * lat_step + lat_step / 2.0;
+            } else {
+                lon += 1.0;
+                lat += 0.5;
+            }
+            return [lat, lon];
+        }
+
+        // Convert Lat/Lon back to 6-char Maidenhead (approximate, for UI convenience)
+        function latLonToLocator(lat, lon) {
+            if (lat < -90 || lat > 90 || lon < -180 || lon > 180) return "------";
+            
+            lon += 180.0;
+            lat += 90.0;
+            
+            let field_lon = Math.floor(lon / 20.0);
+            let field_lat = Math.floor(lat / 10.0);
+            
+            let rem_lon = lon - field_lon * 20.0;
+            let rem_lat = lat - field_lat * 10.0;
+            
+            let square_lon = Math.floor(rem_lon / 2.0);
+            let square_lat = Math.floor(rem_lat / 1.0);
+            
+            rem_lon = rem_lon - square_lon * 2.0;
+            rem_lat = rem_lat - square_lat * 1.0;
+            
+            let sub_lon = Math.floor(rem_lon * 12.0);
+            let sub_lat = Math.floor(rem_lat * 24.0);
+            
+            return String.fromCharCode(65 + field_lon) +
+                   String.fromCharCode(65 + field_lat) +
+                   square_lon.toString() +
+                   square_lat.toString() +
+                   String.fromCharCode(65 + sub_lon) +
+                   String.fromCharCode(65 + sub_lat);
+        }
+
+        // 2.4 Haversine distance
+        const EARTH_RADIUS_KM = 6371.0088;
+        function haversineDistance(lat1, lon1, lat2, lon2) {
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const phi1 = lat1 * Math.PI / 180;
+            const phi2 = lat2 * Math.PI / 180;
+            
+            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                      Math.cos(phi1) * Math.cos(phi2) *
+                      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            const c = 2 * Math.asin(Math.sqrt(a));
+            return EARTH_RADIUS_KM * c;
+        }
+
+        // 2.5 Bijective index mapper
+        function configFromId(id) {
+            const num_tones = CTCSS_TONES.length;
+            const channel_idx = Math.floor(id / num_tones);
+            const tone_idx = id % num_tones;
+            return [channel_idx + 1, CTCSS_TONES[tone_idx]];
+        }
+
+        // 2.6 SHA-256 stable hashing
+        async function getPrimaryByHash(geohash) {
+            const payload = "1.0:" + geohash + ":1.0";
+            const encoder = new TextEncoder();
+            const data = encoder.encode(payload);
+            const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+            const hashArray = new Uint8Array(hashBuffer);
+            
+            // Re-construct the first 8 big-endian bytes as BigInt
+            let val = 0n;
+            for (let i = 0; i < 8; i++) {
+                val = (val << 8n) | BigInt(hashArray[i]);
+            }
+            return Number(val % 304n);
+        }
+
+        // 2.7 Neighbor local search grid
+        async function getLocalNeighbors(center_lat, center_lon, precision, radio_radius_km) {
+            const center_geohash = encodeGeohash(center_lat, center_lon, precision);
+            const [_, __, lat_err, lon_err] = decodeGeohash(center_geohash);
+            
+            const lat_max_diff = radio_radius_km / 111.1;
+            const cos_lat = Math.cos(center_lat * Math.PI / 180);
+            const lon_max_diff = lat_max_diff / Math.max(0.01, cos_lat);
+            
+            const lat_step = 2.0 * lat_err;
+            const lon_step = 2.0 * lon_err;
+            
+            const lat_steps_bound = Math.ceil(lat_max_diff / lat_step) + 1;
+            const lon_steps_bound = Math.ceil(lon_max_diff / lon_step) + 1;
+            
+            const candidate_hashes = new Set();
+            for (let i = -lat_steps_bound; i <= lat_steps_bound; i++) {
+                for (let j = -lon_steps_bound; j <= lon_steps_bound; j++) {
+                    let test_lat = center_lat + i * lat_step;
+                    let test_lon = center_lon + j * lon_step;
+                    
+                    test_lat = Math.min(90.0, Math.max(-90.0, test_lat));
+                    test_lon = Math.min(180.0, Math.max(-180.0, test_lon));
+                    
+                    const gh = encodeGeohash(test_lat, test_lon, precision);
+                    candidate_hashes.add(gh);
+                }
+            }
+            
+            const neighbors = [];
+            for (let gh of candidate_hashes) {
+                if (gh === center_geohash) continue;
+                
+                const [n_lat, n_lon, n_lat_err, n_lon_err] = decodeGeohash(gh);
+                const n_lat_min = n_lat - n_lat_err;
+                const n_lat_max = n_lat + n_lat_err;
+                const n_lon_min = n_lon - n_lon_err;
+                const n_lon_max = n_lon + n_lon_err;
+
+                // Find the closest point on the neighbor geohash box to our actual position (the very beginning of the cell)
+                const closest_lat = Math.max(n_lat_min, Math.min(n_lat_max, center_lat));
+                const closest_lon = Math.max(n_lon_min, Math.min(n_lon_max, center_lon));
+                
+                const dist = haversineDistance(center_lat, center_lon, closest_lat, closest_lon);
+                neighbors.push({ dist, gh });
+            }
+            return neighbors;
+        }
+
+        // 2.8 Local Profile Generator Facade
+        async function getRadioProfile(latitude, longitude, precision = 5, radio_radius_km = 10.0, k = 4) {
+            const cell_geohash = encodeGeohash(latitude, longitude, precision);
+            const primary_id = await getPrimaryByHash(cell_geohash);
+            const [prim_chan, prim_tone] = configFromId(primary_id);
+            
+            const neighbors = await getLocalNeighbors(latitude, longitude, precision, radio_radius_km);
+            
+            if (k <= 1) {
+                return {
+                    geohash: cell_geohash,
+                    primary: { channel: prim_chan, ctcss: prim_tone },
+                    configurations: [{ channel: prim_chan, ctcss: prim_tone }],
+                    neighbors: neighbors
+                };
+            }
+            
+            // Reachable neighbors are those whose closest boundary is within our radio radius (dist <= radio_radius_km)
+            const reachable_neighbors = neighbors.filter(n => n.dist <= radio_radius_km);
+            
+            // Sort primarily by closest-point distance, secondarily alphabetically
+            reachable_neighbors.sort((a, b) => {
+                if (Math.abs(a.dist - b.dist) < 1e-9) {
+                    return a.gh.localeCompare(b.gh);
+                }
+                return a.dist - b.dist;
+            });
+            
+            const allocated_ids = [primary_id];
+            const seen_ids = new Set([primary_id]);
+            
+            for (let n of reachable_neighbors) {
+                if (allocated_ids.length >= k) break;
+                const n_primary_id = await getPrimaryByHash(n.gh);
+                if (!seen_ids.has(n_primary_id)) {
+                    allocated_ids.push(n_primary_id);
+                    seen_ids.add(n_primary_id);
+                }
+            }
+            
+            const configs = allocated_ids.map(id => {
+                const [chan, tone] = configFromId(id);
+                return { channel: chan, ctcss: tone };
+            });
+            
+            return {
+                geohash: cell_geohash,
+                primary: { channel: prim_chan, ctcss: prim_tone },
+                configurations: configs,
+                neighbors: neighbors // Return all local grids (including the unreachable ones) for full map visualization
+            };
+        }
+
+
+        // --- 3. UI and Interactive Leaflet Map Scripting ---
+
+        let map, centerMarker, rangeCircle, activeCellPolygon;
+        let neighborPolygonsGroup = L.layerGroup();
+        
+        let currentLat = 45.0625, currentLon = 8.0417; // Defaulting near JN45AB
+
+        // Initialize Map
+        function initMap() {
+            // Leaflet map setup using dark matter tiles (gorgeous sleek look)
+            map = L.map('map', {
+                center: [currentLat, currentLon],
+                zoom: 12,
+                zoomControl: false
+            });
+            
+            L.control.zoom({ position: 'topright' }).addTo(map);
+
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+                subdomains: 'abcd',
+                maxZoom: 20
+            }).addTo(map);
+
+            // Layer for neighbor cell visualizations
+            neighborPolygonsGroup.addTo(map);
+
+            // Map click handler to trigger profile queries
+            map.on('click', async function(e) {
+                currentLat = e.latlng.lat;
+                currentLon = e.latlng.lng;
+                await updateProfile();
+            });
+        }
+
+        // Render cell overlays on map
+        async function drawOverlays(prof, precision, radio_radius_km) {
+            // 1. Clear previous drawings
+            if (centerMarker) map.removeLayer(centerMarker);
+            if (rangeCircle) map.removeLayer(rangeCircle);
+            if (activeCellPolygon) map.removeLayer(activeCellPolygon);
+            neighborPolygonsGroup.clearLayers();
+
+            // 2. Draw Range Circle
+            rangeCircle = L.circle([currentLat, currentLon], {
+                radius: radio_radius_km * 1000,
+                color: 'rgba(255, 255, 255, 0.15)',
+                fillColor: 'rgba(255, 255, 255, 0.03)',
+                fillOpacity: 0.1,
+                weight: 1.5,
+                dashArray: '4, 6'
+            }).addTo(map);
+
+            // 3. Draw Selected Geohash Cell Box
+            const [c_lat, c_lon, lat_err, lon_err] = decodeGeohash(prof.geohash);
+            const lat_min = c_lat - lat_err;
+            const lat_max = c_lat + lat_err;
+            const lon_min = c_lon - lon_err;
+            const lon_max = c_lon + lon_err;
+
+            activeCellPolygon = L.polygon([
+                [lat_min, lon_min],
+                [lat_min, lon_max],
+                [lat_max, lon_max],
+                [lat_max, lon_min]
+            ], {
+                color: '#34d399',
+                fillColor: '#34d399',
+                fillOpacity: 0.1,
+                weight: 2
+            }).addTo(map);
+
+
+
+            // 4. Draw Center Point Pin
+            centerMarker = L.circleMarker([currentLat, currentLon], {
+                radius: 6,
+                color: '#ffffff',
+                fillColor: '#34d399',
+                fillOpacity: 1,
+                weight: 2
+            }).addTo(map);
+
+            // 5. Draw Translucent Neighbor Polygons with tooltip details
+            for (let n of prof.neighbors) {
+                const [n_lat, n_lon, n_lat_err, n_lon_err] = decodeGeohash(n.gh);
+                const n_lat_min = n_lat - n_lat_err;
+                const n_lat_max = n_lat + n_lat_err;
+                const n_lon_min = n_lon - n_lon_err;
+                const n_lon_max = n_lon + n_lon_err;
+
+                // Dynamically fetch neighboring cell's complete configuration set C(B)
+                const k = parseInt(document.getElementById('paramK').value);
+                const b_prof = await getRadioProfile(n_lat, n_lon, precision, radio_radius_km, k);
+
+
+
+                const is_reachable = (n.dist <= radio_radius_km);
+
+                // Compute intersection if geographically reachable
+                let shared_conf = null;
+                if (is_reachable) {
+                    for (let a_conf of prof.configurations) {
+                        for (let b_conf of b_prof.configurations) {
+                            if (a_conf.channel === b_conf.channel && Math.abs(a_conf.ctcss - b_conf.ctcss) < 0.01) {
+                                shared_conf = a_conf;
+                                break;
+                            }
+                        }
+                        if (shared_conf) break;
+                    }
+                }
+
+                const has_overlap = (shared_conf !== null);
+
+                // Set polygon aesthetics based on physical distance and channel overlap
+                let poly_style = {};
+                if (!is_reachable) {
+                    // Out of physical radio range (> 10 km to closest point)
+                    poly_style = {
+                        color: 'rgba(239, 68, 68, 0.3)',
+                        fillColor: 'rgba(239, 68, 68, 0.01)',
+                        fillOpacity: 0.02,
+                        weight: 1,
+                        dashArray: '3, 5'
+                    };
+                } else if (!has_overlap) {
+                    // In-range but incompatible due to set size allocation limits (K)
+                    poly_style = {
+                        color: 'rgba(234, 179, 8, 0.45)',
+                        fillColor: 'rgba(234, 179, 8, 0.04)',
+                        fillOpacity: 0.06,
+                        weight: 1.5,
+                        dashArray: '1, 4'
+                    };
+                } else {
+                    // Geographically reachable & link compatible!
+                    poly_style = {
+                        color: 'rgba(56, 189, 248, 0.45)',
+                        fillColor: 'rgba(56, 189, 248, 0.06)',
+                        fillOpacity: 0.09,
+                        weight: 1.5
+                    };
+                }
+
+                const poly = L.polygon([
+                    [n_lat_min, n_lon_min],
+                    [n_lat_min, n_lon_max],
+                    [n_lat_max, n_lon_max],
+                    [n_lat_max, n_lon_min]
+                ], poly_style);
+
+                if (!is_reachable) {
+                    // 1. Physically OUT OF REACH (> 10 km)
+                    poly.bindPopup(`
+                        <div class="popup-title">Cell: ${n.gh} <span style="color:#f87171; font-size:0.75rem; font-weight:normal;">(Out of Reach)</span></div>
+                        <div class="popup-text" style="font-size:0.85rem; line-height:1.5;">
+                            Distance to closest boundary: <b>${n.dist.toFixed(2)} km</b><br>
+                            This cell is completely outside your radio's nominal <b>${radio_radius_km} km</b> range.<br>
+                            <span style="color:#ef4444; font-weight:500;">Physical communication is impossible due to geographic distance.</span>
+                        </div>
+                    `);
+
+                    poly.bindTooltip(`[Out of Reach]`, {
+                        permanent: true,
+                        direction: 'center',
+                        className: 'unreachable-tooltip'
+                    });
+                } else if (!has_overlap) {
+                    // 2. In geographic range but spectral incompatibility
+                    const n_prim_id = await getPrimaryByHash(n.gh);
+                    const [n_chan, n_tone] = configFromId(n_prim_id);
+                    const n_chan_freq = getChannelFreq(n_chan);
+                    const n_tone_num = getToneNumber(n_tone);
+
+                    poly.bindPopup(`
+                        <div class="popup-title">Cell: ${n.gh} <span style="color:#eab308; font-size:0.75rem; font-weight:normal;">(Incompatible Slot)</span></div>
+                        <div class="popup-text" style="font-size:0.85rem; line-height:1.5;">
+                            Distance to closest boundary: <b>${n.dist.toFixed(2)} km</b> (In Range!)<br>
+                            <span style="color:#facc15; font-weight:600;">Geographically in range but no common channel exists in C(A) &cap; C(B).</span><br>
+                            Your radio has run out of configuration set capacity (K=${k}) to accommodate this neighbor.<br>
+                            To establish a link, drag the <b>K parameter</b> slider higher.<br>
+                            <i>(Neighbor's Primary: CH${n_chan} @ ${n_chan_freq.toFixed(5)} MHz / Tone #${n_tone_num})</i>
+                        </div>
+                    `);
+
+                    poly.bindTooltip(`[Incompatible]`, {
+                        permanent: true,
+                        direction: 'center',
+                        className: 'incompatible-tooltip'
+                    });
+                } else {
+                    // 3. Reachable and compatible!
+                    const shared_chan = shared_conf.channel;
+                    const shared_tone_val = shared_conf.ctcss;
+                    const shared_tone_num = getToneNumber(shared_tone_val);
+                    const shared_chan_freq = getChannelFreq(shared_chan);
+
+                    poly.bindPopup(`
+                        <div class="popup-title">Cell: ${n.gh} <span style="color:#34d399; font-size:0.75rem; font-weight:normal;">(Reachable & Link Compatible)</span></div>
+                        <div class="popup-text" style="font-size:0.85rem; line-height:1.5;">
+                            Distance to closest boundary: <b>${n.dist.toFixed(2)} km</b> (In Range!)<br>
+                            Shared Communication Channel:<br>
+                            &bull; Channel: <b>CH${shared_chan}</b> (${shared_chan_freq.toFixed(5)} MHz)<br>
+                            &bull; Squelch: <b>Tone #${shared_tone_num}</b> (${shared_tone_val.toFixed(1)} Hz)<br>
+                            <span style="font-size:0.75rem; color:var(--text-muted);">Verified compatible channel intersection in C(A) &cap; C(B).</span>
+                        </div>
+                    `);
+
+                    poly.bindTooltip(`CH${shared_chan} / T#${shared_tone_num}`, {
+                        permanent: true,
+                        direction: 'center',
+                        className: 'cell-tooltip'
+                    });
+                }
+
+                neighborPolygonsGroup.addLayer(poly);
+            }
+        }
+
+        // Main dashboard updates
+        async function updateProfile() {
+            // Read parameters from inputs
+            const precision = parseInt(document.getElementById('paramPrecision').value);
+            const radius_km = parseFloat(document.getElementById('paramRadius').value);
+            const k = parseInt(document.getElementById('paramK').value);
+
+            // Update range slider labels
+            document.getElementById('lblPrecision').textContent = `${precision} chars`;
+            document.getElementById('lblRadius').textContent = `${radius_km.toFixed(1)} km`;
+            document.getElementById('lblK').textContent = `${k} configs`;
+
+            // Compute current location info
+            const locator = latLonToLocator(currentLat, currentLon);
+            
+            document.getElementById('outLocator').textContent = locator;
+            
+            try {
+                const prof = await getRadioProfile(currentLat, currentLon, precision, radius_km, k);
+                
+                document.getElementById('outGeohash').textContent = prof.geohash;
+                
+                const p_chan = prof.primary.channel;
+                const p_tone = prof.primary.ctcss;
+                const p_chan_freq = getChannelFreq(p_chan);
+                const p_tone_num = getToneNumber(p_tone);
+                document.getElementById('outPrimary').textContent = `CH${p_chan} / Tone #${p_tone_num}`;
+                document.getElementById('outPrimaryExplain').innerHTML = `
+                    Freq: <b>${p_chan_freq.toFixed(5)} MHz</b> &bull; Squelch: <b>${p_tone.toFixed(1)} Hz</b>
+                `;
+
+                // Build compatible configuration set row list
+                const listEl = document.getElementById('outConfigList');
+                listEl.innerHTML = '';
+
+                prof.configurations.forEach((conf, idx) => {
+                    const row = document.createElement('div');
+                    row.className = `config-row ${idx === 0 ? 'primary-row' : ''}`;
+                    
+                    const indicator = idx === 0 ? '<span class="p-dot"></span>' : '<span class="s-dot"></span>';
+                    const label = idx === 0 ? 'Primary Standby' : `Link Compat #${idx}`;
+                    
+                    const chanFreq = getChannelFreq(conf.channel);
+                    const toneNum = getToneNumber(conf.ctcss);
+
+                    row.innerHTML = `
+                        <div class="config-row-lbl" style="display:flex; flex-direction:column; gap:0.1rem; line-height:1.2;">
+                            <div style="display:flex; align-items:center; gap:0.5rem; font-weight:600;">${indicator} ${label}</div>
+                            <div style="font-size:0.75rem; color:var(--text-muted); margin-left:13px;">CH${conf.channel} @ ${chanFreq.toFixed(5)} MHz</div>
+                        </div>
+                        <div class="config-row-val" style="text-align:right; font-size:0.85rem; line-height:1.2;">
+                            Tone #${toneNum}<br>
+                            <span style="font-size:0.75rem; color:var(--text-muted); font-weight:normal;">${conf.ctcss.toFixed(1)} Hz</span>
+                        </div>
+                    `;
+                    listEl.appendChild(row);
+                });
+
+                // Redraw map overlays
+                await drawOverlays(prof, precision, radius_km);
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        // Handle text searches
+        async function handleSearch() {
+            const input = document.getElementById('searchInput').value.trim();
+            if (!input) return;
+
+            // Check if input coordinates
+            const coordMatch = input.match(/^([-+]?[0-9]*\.?[0-9]+)\s*,\s*([-+]?[0-9]*\.?[0-9]+)$/);
+            if (coordMatch) {
+                currentLat = parseFloat(coordMatch[1]);
+                currentLon = parseFloat(coordMatch[2]);
+                map.setView([currentLat, currentLon], 12);
+                await updateProfile();
+                return;
+            }
+
+            // Fallback to Maidenhead search
+            try {
+                const [lat, lon] = locatorToLatLon(input);
+                currentLat = lat;
+                currentLon = lon;
+                map.setView([currentLat, currentLon], 12);
+                await updateProfile();
+            } catch (e) {
+                alert(`Search Error: ${e.message}`);
+            }
+        }
+
+        async function useGeolocation() {
+            if (!navigator.geolocation) {
+                alert("Geolocation is not supported by your browser.");
+                return;
+            }
+            
+            const btn = document.getElementById('geoBtn');
+            const originalText = btn.textContent;
+            btn.textContent = "⌛";
+            btn.disabled = true;
+            
+            navigator.geolocation.getCurrentPosition(async (position) => {
+                currentLat = position.coords.latitude;
+                currentLon = position.coords.longitude;
+                
+                // Update search input to show coordinates
+                document.getElementById('searchInput').value = `${currentLat.toFixed(5)}, ${currentLon.toFixed(5)}`;
+                
+                map.setView([currentLat, currentLon], 12);
+                await updateProfile();
+                
+                btn.textContent = originalText;
+                btn.disabled = false;
+            }, (error) => {
+                let msg = "Unable to retrieve your location.";
+                if (error.code === error.PERMISSION_DENIED) {
+                    msg = "Location access denied. Please check your browser permissions.";
+                }
+                alert(msg);
+                btn.textContent = originalText;
+                btn.disabled = false;
+            });
+        }
+
+        // Bind events
+        document.getElementById('searchBtn').addEventListener('click', handleSearch);
+        document.getElementById('geoBtn').addEventListener('click', useGeolocation);
+        document.getElementById('searchInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') handleSearch();
+        });
+
+        // Trigger updates on parameter adjustments
+        document.getElementById('paramPrecision').addEventListener('input', updateProfile);
+        document.getElementById('paramRadius').addEventListener('input', updateProfile);
+        document.getElementById('paramK').addEventListener('input', updateProfile);
+
+        // Start App
+        window.onload = function() {
+            initMap();
+            updateProfile();
+        };
+    </script>
+</body>
+</html>
