@@ -1,4 +1,4 @@
-# GeoPMR446: Simulation and Compliance Validation Guidelines
+# PMR446 GeoConfig: Simulation and Compliance Validation Guidelines
 ## Protocol and Metrics Specification
 **Version:** 1.0.0  
 **Status:** Proposal / Draft Standard  
@@ -7,13 +7,13 @@
 
 ## Abstract
 
-This specification defines the official guidelines for simulating, validating, and verifying standard-compliant implementations of the **GeoPMR446 Geographic Configuration Protocol**. It details geographic test areas, graph density evaluations, optimization metrics, and standard formats for JSON data exchange.
+This specification defines the official guidelines for simulating, validating, and verifying standard-compliant implementations of the **PMR446 GeoConfig Geographic Configuration Protocol**. It details geographic test areas, graph density evaluations, optimization metrics, and standard formats for JSON data exchange.
 
 ---
 
 ## 1. Objectives of Simulation
 
-Because the GeoPMR446 protocol is decentralized and operates on a limited channel space, compliance validation requires testing geographic connectivity at scale. 
+Because the PMR446 GeoConfig protocol is decentralized and operates on a limited channel space, compliance validation requires testing geographic connectivity at scale. 
 
 Simulations are designed to:
 1. **Verify Invariant Compliance**: Ensure that every compatible radio link within a simulated region has at least one common channel configuration in its endpoints' configuration sets.
@@ -90,7 +90,7 @@ To guarantee scientific reproducibility and allow cross-implementation verificat
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "GeoPMR446-SimulationResult",
+  "title": "PMR446 GeoConfig-SimulationResult",
   "type": "object",
   "required": [
     "algorithm",
@@ -104,7 +104,7 @@ To guarantee scientific reproducibility and allow cross-implementation verificat
     "k_steps"
   ],
   "properties": {
-    "algorithm": { "type": "string", "const": "GeoPMR446" },
+    "algorithm": { "type": "string", "const": "PMR446 GeoConfig" },
     "version": { "type": "string" },
     "geohash_precision": { "type": "integer", "minimum": 1 },
     "radio_radius_km": { "type": "number", "minimum": 0.1 },

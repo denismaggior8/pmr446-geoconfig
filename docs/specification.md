@@ -1,4 +1,4 @@
-# GeoPMR446: Geographic Configuration Protocol for PMR446 Radios
+# PMR446 GeoConfig: Geographic Configuration Protocol for PMR446 Radios
 ## Technical Specification and Standardization Proposal
 **Version:** 1.0.0  
 **Status:** Proposal / Draft Standard  
@@ -7,9 +7,9 @@
 
 ## Abstract
 
-This document outlines **GeoPMR446**, a decentralized, deterministic, and geographically aware configuration protocol for PMR446 (Private Mobile Radio, $446\text{ MHz}$) analog equipment. 
+This document outlines **PMR446 GeoConfig**, a decentralized, deterministic, and geographically aware configuration protocol for PMR446 (Private Mobile Radio, $446\text{ MHz}$) analog equipment. 
 
-The protocol maps any physical coordinate on Earth to a stable, compatible set of channel and squelch tone combinations without relying on central registries, database lookups, or network synchronization. By combining Geohash spatial partitioning, Haversine geometry, and stable cryptographic hashing, GeoPMR446 guarantees that any two adjacent users within a nominal $10\text{ km}$ communication radius share at least one common channel configuration, while geographically separated users automatically reuse configurations to minimize spectral congestion.
+The protocol maps any physical coordinate on Earth to a stable, compatible set of channel and squelch tone combinations without relying on central registries, database lookups, or network synchronization. By combining Geohash spatial partitioning, Haversine geometry, and stable cryptographic hashing, PMR446 GeoConfig guarantees that any two adjacent users within a nominal $10\text{ km}$ communication radius share at least one common channel configuration, while geographically separated users automatically reuse configurations to minimize spectral congestion.
 
 ---
 
@@ -17,7 +17,7 @@ The protocol maps any physical coordinate on Earth to a stable, compatible set o
 
 PMR446 is a license-free personal radio service used widely across Europe. However, because it operates on a limited set of shared frequencies, users frequently suffer from co-channel interference or find themselves unable to establish communication due to misaligned squelch settings. 
 
-This standard addresses these challenges by introducing a decentralized spatial allocation protocol. The goals of **GeoPMR446** are:
+This standard addresses these challenges by introducing a decentralized spatial allocation protocol. The goals of **PMR446 GeoConfig** are:
 1. **Determinism**: The same geographic inputs and protocol version must always yield identical configuration sets on any device or language.
 2. **Infrastructure Independence**: No database, network service, or central registration is required.
 3. **Compatibility**: Fully compatible with legacy analog PMR446 equipment using standard Continuous Tone-Coded Squelch System (CTCSS) tones.
@@ -301,7 +301,7 @@ Return primary_assignments
 
 ## 7. Compliance and Verification Criteria
 
-An implementation of GeoPMR446 is considered fully compliant if it satisfies the following criteria:
+An implementation of PMR446 GeoConfig is considered fully compliant if it satisfies the following criteria:
 1. **Bijective Invariant**: Config ID 0 maps to (CH1, CTCSS 67.0) and Config ID 303 maps to (CH8, CTCSS 250.3).
 2. **Determinism Invariant**: Two runs of any reference algorithm on identical inputs MUST return identical configuration allocations.
 3. **Local/Global Convergence**: Standalone profiles computed locally using `ResolveLocalProfile` must exactly match profiles computed from a globally bounded geographic graph.

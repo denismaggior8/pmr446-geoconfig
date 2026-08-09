@@ -1,6 +1,6 @@
-# GeoPMR446 — Geographic Configuration Algorithm Design
+# PMR446 GeoConfig — Geographic Configuration Algorithm Design
 
-This document describes the design, mathematics, and implementation details of the **GeoPMR446 Geographic Configuration Algorithm**.
+This document describes the design, mathematics, and implementation details of the **PMR446 GeoConfig Geographic Configuration Algorithm**.
 
 ## 1. PMR446 Configuration Space
 

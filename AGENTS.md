@@ -718,7 +718,7 @@ The API should also expose algorithm metadata:
 
 ```python
 {
-    "algorithm": "GeoPMR446",
+    "algorithm": "PMR446 GeoConfig",
     "version": "1.0",
     "geohash_precision": 5,
     "radio_radius_km": 10.0
@@ -734,13 +734,13 @@ Provide a command-line interface.
 Example:
 
 ```bash
-geopmr446 JN45AB
+PMR446 GeoConfig JN45AB
 ```
 
 Output:
 
 ```text
-GeoPMR446 v1.0
+PMR446 GeoConfig v1.0
 
 Locator: JN45AB
 Geohash: ...
@@ -757,13 +757,13 @@ Compatible configurations:
 The CLI should also support coordinates:
 
 ```bash
-geopmr446 --lat 45.0703 --lon 7.6869
+PMR446 GeoConfig --lat 45.0703 --lon 7.6869
 ```
 
 and simulation:
 
 ```bash
-geopmr446 simulate
+PMR446 GeoConfig simulate
 ```
 
 Useful simulation options:
@@ -879,7 +879,7 @@ Example:
 
 ```json
 {
-  "algorithm": "GeoPMR446",
+  "algorithm": "PMR446 GeoConfig",
   "version": "1.0",
   "geohash_precision": 5,
   "radio_radius_km": 10.0,
@@ -920,7 +920,7 @@ Suggested structure:
 
 ```text
 src/
-    geopmr446/
+    PMR446 GeoConfig/
         __init__.py
         config.py
         geohash.py
@@ -1038,7 +1038,7 @@ The algorithm must expose a version.
 Initial version:
 
 ```text
-GeoPMR446 v1.0
+PMR446 GeoConfig v1.0
 ```
 
 Changes that modify:
@@ -1184,7 +1184,7 @@ JN45AB
 and obtain a deterministic PMR446 configuration profile such as:
 
 ```text
-GeoPMR446 v1.0
+PMR446 GeoConfig v1.0
 
 Location:
 JN45AB

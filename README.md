@@ -1,7 +1,7 @@
 # PMR446 GeoConfig: Geographic Configuration Protocol for PMR446 Radios
 ## Official Standard Proposal and Protocol Specification
 
-Welcome to the official repository for the **PMR446 GeoConfig - Geographic Configuration Protocol**. 
+Welcome to the official repository for the **PMR446 GeoConfig**. 
 
 This repository contains the formal technical standard and protocol specification for decentralized, deterministic, and geographically aware allocation of channels and sub-audible CTCSS squelch tones on PMR446 radio equipment.
 
@@ -11,7 +11,7 @@ This repository contains the formal technical standard and protocol specificatio
 
 PMR446 is a license-free personal radio service used widely across Europe. Due to the limited spectral space (8 frequency channels), users frequently suffer from overlapping co-channel interference or find themselves unable to communicate because of mismatched sub-audible CTCSS squelch codes. 
 
-**GeoPMR446** resolves these limitations. By dividing the physical world into discretized cells via **Geohashing**, calculating proximity with **Haversine geometry**, and assigning default configurations using **SHA-256 stable hashing**, compliant radio devices can instantly calculate a compatible configuration profile using only geographic coordinates (or a Maidenhead Locator).
+**PMR446 GeoConfig** resolves these limitations. By dividing the physical world into discretized cells via **Geohashing**, calculating proximity with **Haversine geometry**, and assigning default configurations using **SHA-256 stable hashing**, compliant radio devices can instantly calculate a compatible configuration profile using only geographic coordinates (or a Maidenhead Locator).
 
 ### Key Features
 - **Deterministic**: Given identical coordinates and version parameters, the protocol always yields identical configurations on any platform.
