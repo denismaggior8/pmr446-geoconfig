@@ -264,7 +264,7 @@ Every simulation run MUST calculate:
 - **Maximum Degree ($\Delta(G)$)**: Maximum neighbor count.
 - **Average Degree ($d_{\text{avg}}(G)$)**: $2M/N$.
 - **Uncovered Edges ($U_K$)**: The number of connected edges with empty set intersection:
-  $$U_K = \Big| \big\{ (u, v) \in E \mid \mathcal{C}(u) \cap \mathcal{C}(v) = \emptyset \big\} \Big|$$
+  $$U_K = \Big| \Big[ (u, v) \in E \mid \mathcal{C}(u) \cap \mathcal{C}(v) = \emptyset \Big] \Big|$$
 - **Satisfied Link % ($P_K$)**: $(1 - U_K / M) \times 100\%$.
 - **Minimum Successful K ($K_{\text{successful}}$)**: $\min \{ K \in \mathbb{N} \mid U_K = 0 \}$.
 
