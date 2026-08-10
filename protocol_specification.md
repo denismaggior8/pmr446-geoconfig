@@ -15,7 +15,7 @@ The complete configuration space $\mathcal{S}$ is:
 $$\mathcal{S} = C \times T \quad \text{where} \quad |\mathcal{S}| = 8 \times 38 = 304$$
 
 A configuration is represented as:
-$$s = (\text{channel}, \text{ctcss\_tone})$$
+$$s = (\text{channel}, \text{ctcss-tone})$$
 
 ### 1.1 Frequency Channels ($C$)
 Let $C$ be the set of standard PMR446 channels:
@@ -37,17 +37,17 @@ The CTCSS set $T$ MUST be represented as a stable, ordered constant containing t
 [
   67.0,  71.9,  74.4,  77.0,  79.7,  82.5,  85.4,  88.5,  91.5,  94.8,
   97.4, 100.0, 103.5, 107.2, 110.9, 114.8, 118.8, 123.0, 127.3, 131.8,
- 136.5, 141.3, 146.2, 151.4, 156.7, 162.2, 167.9, 173.8, 179.9, 186.2,
- 192.8, 203.5, 210.7, 218.1, 225.7, 233.6, 241.8, 250.3
+  136.5, 141.3, 146.2, 151.4, 156.7, 162.2, 167.9, 173.8, 179.9, 186.2,
+  192.8, 203.5, 210.7, 218.1, 225.7, 233.6, 241.8, 250.3
 ]
 ```
 
 ### 1.3 Stable Configuration Encoding
 Every configuration is bijectively mapped to a stable integer ID in the range $0 \dots 303$:
-$$\text{config\_id}(c, t_i) = (c - 1) \times 38 + i$$
+$$\text{config-id}(c, t_i) = (c - 1) \times 38 + i$$
 
 The decoding inverse function is defined as:
-$$\text{config\_from\_id}(\text{id}) = \left( \lfloor \text{id} / 38 \rfloor + 1, \,\, T_{\text{id} \bmod 38} \right)$$
+$$\text{config-from-id}(\text{id}) = \left( \lfloor \text{id} / 38 \rfloor + 1, ~ T_{\text{id} \bmod 38} \right)$$
 
 This mapping MUST remain stable and immutable across all version implementations.
 
@@ -72,10 +72,10 @@ Geohashing is used to discretize continuous geographic space. Precision $P$ (cha
 
 ### 2.4 Distance Metric
 To compute physical distance $d$ between coordinates, implementations MUST use the **Haversine formula**:
-$$a = \sin^2\left(\frac{lat_2 - lat_1}{2}\right) + \cos(lat_1)\cos(lat_2)\sin^2\left(\frac{lon_2 - lon_1}{2}\right)$$
+$$a = \sin^2\left(\frac{\phi_2 - \phi_1}{2}\right) + \cos(\phi_1)\cos(\phi_2)\sin^2\left(\frac{\lambda_2 - \lambda_1}{2}\right)$$
 $$c = 2 \arcsin(\sqrt{a})$$
 $$d = R_{\text{earth}} \times c$$
-where the Earth radius is $R_{\text{earth}} = 6371.0088\text{ km}$. Do not use latitude/longitude Euclidean projections.
+where $\phi_1, \phi_2$ are latitudes, $\lambda_1, \lambda_2$ are longitudes, and the Earth radius is $R_{\text{earth}} = 6371.0088\text{ km}$. Do not use latitude/longitude Euclidean projections.
 
 ---
 
@@ -85,7 +85,7 @@ where the Earth radius is $R_{\text{earth}} = 6371.0088\text{ km}$. Do not use l
 The discrete geographic space is modeled as an undirected graph $G = (V, E)$ where:
 - $V \subset \mathcal{H}_P$: A set of Geohash cells at precision $P$.
 - $E$: Edges between cell centers within nominal radio radius:
-  $$E = \{ (u, v) \in V \times V \mid d_{\text{haversine}}(\text{center}(u), \text{center}(v)) \le R_{\text{radio}} \}$$
+  $$E = \{ (u, v) \in V \times V \mid \text{dist}(\text{center}(u), \text{center}(v)) \le R_{\text{radio}} \}$$
 - Default radius parameter: $R_{\text{radio}} = 10.0\text{ km}$ (fully configurable).
 
 ### 3.2 The Core Compatibility Invariant (Symmetric Standby-Calling)
@@ -268,7 +268,7 @@ Every simulation run MUST calculate:
 - **Minimum Successful K ($K_{\text{successful}}$)**: $\min \{ K \in \mathbb{N} \mid U_K = 0 \}$.
 
 ### 5.3 Performance Optimizations
-For large-scale simulations, O(N²) geographic graph comparisons are prohibited. Simulators SHOULD use a **2D Spatial Grid Bucketing** index of step size $D_{\text{lat}} = R_{\text{radio}}/111.1$ and $D_{\text{lon}} = D_{\text{lat}}/\cos(\text{max\_abs\_lat})$ to ensure $O(N)$ average lookup times.
+For large-scale simulations, O(N²) geographic graph comparisons are prohibited. Simulators SHOULD use a **2D Spatial Grid Bucketing** index of step size $D_{\phi} = R_{\text{radio}} / 111.1$ and $D_{\lambda} = D_{\phi} / \cos(\phi_{\max})$ to ensure $O(N)$ average lookup times.
 
 ### 5.4 JSON Export Schema
 To ensure scientific reproducibility, simulation results exported to JSON MUST validate perfectly against the standard JSON schema:
