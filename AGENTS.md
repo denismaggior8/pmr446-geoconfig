@@ -1,1207 +1,285 @@
-# PMR446 — Geographic Configuration Algorithm
+# PMR446 GeoConfig: Technical Protocol Specification and Agent Guidelines
 
 ## Purpose
-
-Develop a deterministic, geographic configuration algorithm for PMR446 radios.
-
-The algorithm assigns a set of PMR446 radio configurations to a geographic location so that nearby stations are likely to share at least one compatible radio configuration, while geographically distant stations can reuse different configurations.
-
-The system must be:
-
-- deterministic;
-- geographically aware;
-- based on Geohash;
-- independent of any central database;
-- compatible with legacy PMR446 equipment;
-- easy to implement on small devices or embedded systems;
-- independently reproducible by different implementations.
-
-The initial target is a maximum nominal communication radius of **10 km**.
-
-This project is an algorithmic research/prototyping project. The implementation must include simulation and verification tools rather than assuming that a particular allocation strategy is mathematically optimal.
+This document serves as the formal technical specification, mathematical description, reference algorithmic pseudocode, and compliance verification standard for **PMR446 GeoConfig**. It is the single source of truth for compilers, embedded software engineers, and AI coding agents working on this protocol or codebase.
 
 ---
 
-# 1. PMR446 Radio Model
+# 1. PMR446 Radio Model & Configuration Space
 
-The algorithm MUST initially operate on the legacy/common PMR446 configuration space:
+Compliant implementations MUST operate strictly within the legacy/common PMR446 configuration space:
+- 8 PMR446 frequency channels (12.5 kHz spacing).
+- 38 standard CTCSS tones.
+- No DCS, digital modes, or proprietary signaling.
 
-- 8 PMR446 channels;
-- 38 standard CTCSS tones;
-- CTCSS only;
-- no DCS;
-- no proprietary signaling;
-- no digital modes.
-
-The complete configuration space therefore contains:
-
-**8 × 38 = 304 configurations.**
+The complete configuration space $\mathcal{S}$ is:
+$$\mathcal{S} = C \times T \quad \text{where} \quad |\mathcal{S}| = 8 \times 38 = 304$$
 
 A configuration is represented as:
+$$s = (\text{channel}, \text{ctcss\_tone})$$
 
+### 1.1 Frequency Channels ($C$)
+Let $C$ be the set of standard PMR446 channels:
+$$C = \{1, 2, 3, 4, 5, 6, 7, 8\}$$
+
+The physical carrier frequencies corresponding to each channel number are defined as:
+- **CH1**: 446.00625 MHz
+- **CH2**: 446.01875 MHz
+- **CH3**: 446.03125 MHz
+- **CH4**: 446.04375 MHz
+- **CH5**: 446.05625 MHz
+- **CH6**: 446.06875 MHz
+- **CH7**: 446.08125 MHz
+- **CH8**: 446.09375 MHz
+
+### 1.2 CTCSS Tone Set ($T$)
+The CTCSS set $T$ MUST be represented as a stable, ordered constant containing the following 38 standard sub-audible tone squelch frequencies in Hertz:
 ```text
-(channel, ctcss_tone)
+[
+  67.0,  71.9,  74.4,  77.0,  79.7,  82.5,  85.4,  88.5,  91.5,  94.8,
+  97.4, 100.0, 103.5, 107.2, 110.9, 114.8, 118.8, 123.0, 127.3, 131.8,
+ 136.5, 141.3, 146.2, 151.4, 156.7, 162.2, 167.9, 173.8, 179.9, 186.2,
+ 192.8, 203.5, 210.7, 218.1, 225.7, 233.6, 241.8, 250.3
+]
 ```
 
-For example:
+### 1.3 Stable Configuration Encoding
+Every configuration is bijectively mapped to a stable integer ID in the range $0 \dots 303$:
+$$\text{config\_id}(c, t_i) = (c - 1) \times 38 + i$$
 
-```text
-(CH1, 67.0)
-(CH3, 77.0)
-(CH7, 123.0)
-```
+The decoding inverse function is defined as:
+$$\text{config\_from\_id}(\text{id}) = \left( \lfloor \text{id} / 38 \rfloor + 1, \,\, T_{\text{id} \bmod 38} \right)$$
 
-The implementation MUST treat channel and CTCSS as separate dimensions.
-
-Do not assume that channel number and CTCSS number are interchangeable.
+This mapping MUST remain stable and immutable across all version implementations.
 
 ---
 
-# 2. CTCSS Tone Set
+# 2. Geographic Input and Spatial Modeling
 
-The initial CTCSS set MUST contain the following 38 standard tones:
+### 2.1 Coordinate System
+The standard geographic datum is WGS-84. Coordinates are represented as:
+- Latitude: $[-90.0, 90.0]$
+- Longitude: $[-180.0, 180.0]$
 
-```text
-67.0
-71.9
-74.4
-77.0
-79.7
-82.5
-85.4
-88.5
-91.5
-94.8
-97.4
-100.0
-103.5
-107.2
-110.9
-114.8
-118.8
-123.0
-127.3
-131.8
-136.5
-141.3
-146.2
-151.4
-156.7
-162.2
-167.9
-173.8
-179.9
-186.2
-192.8
-203.5
-210.7
-218.1
-225.7
-233.6
-241.8
-250.3
-```
+### 2.2 Maidenhead Locator Interface
+When receiving a Maidenhead Locator, the system MUST decode it to its exact coordinate center-point before discretization.
+- **Fields (character pair 1)**: Subdivides the globe into $18 \times 18$ cells of $20^\circ \text{ longitude} \times 10^\circ \text{ latitude}$.
+- **Squares (digit pair 2)**: Subdivides each field into $10 \times 10$ cells of $2^\circ \text{ longitude} \times 1^\circ \text{ latitude}$.
+- **Subsquares (character pair 3)**: Subdivides each square into $24 \times 24$ cells of $5'\text{ longitude} \times 2.5'\text{ latitude}$.
 
-The list MUST be represented as a stable ordered constant.
+### 2.3 Geohash Discretization
+Geohashing is used to discretize continuous geographic space. Precision $P$ (character length) is treated as an algorithm parameter and MUST NOT be hard-coded.
+- Default precision for nominal calculations is $P=5$ ($\approx 4.9\text{ km} \times 4.9\text{ km}$ at the equator).
 
-The implementation MUST NOT silently add:
-
-- DCS codes;
-- non-standard CTCSS values;
-- digital signaling;
-- proprietary tones.
+### 2.4 Distance Metric
+To compute physical distance $d$ between coordinates, implementations MUST use the **Haversine formula**:
+$$a = \sin^2\left(\frac{lat_2 - lat_1}{2}\right) + \cos(lat_1)\cos(lat_2)\sin^2\left(\frac{lon_2 - lon_1}{2}\right)$$
+$$c = 2 \arcsin(\sqrt{a})$$
+$$d = R_{\text{earth}} \times c$$
+where the Earth radius is $R_{\text{earth}} = 6371.0088\text{ km}$. Do not use latitude/longitude Euclidean projections.
 
 ---
 
-# 3. Geographic Input
+# 3. Geographic Graph and Compatibility Invariants
 
-The primary geographic input is a geographic coordinate:
+### 3.1 Geographic Graph Connectivity
+The discrete geographic space is modeled as an undirected graph $G = (V, E)$ where:
+- $V \subset \mathcal{H}_P$: A set of Geohash cells at precision $P$.
+- $E$: Edges between cell centers within nominal radio radius:
+  $$E = \{ (u, v) \in V \times V \mid d_{\text{haversine}}(\text{center}(u), \text{center}(v)) \le R_{\text{radio}} \}$$
+- Default radius parameter: $R_{\text{radio}} = 10.0\text{ km}$ (fully configurable).
 
-```text
-latitude
-longitude
-```
+### 3.2 The Core Compatibility Invariant (Symmetric Standby-Calling)
+For any two geographically adjacent cells connected in the graph, the following must hold:
+$$(u, v) \in E \implies \text{Primary}(v) \in \mathcal{C}(u) \quad \text{and} \quad \text{Primary}(u) \in \mathcal{C}(v)$$
+This guarantees that operators in adjacent cells can always contact each other by tuning to the other's designated primary calling channel.
 
-The system MUST also provide a Maidenhead Locator interface because Maidenhead is commonly used by radio amateurs.
-
-The implementation should support:
-
-```text
-Maidenhead locator → latitude/longitude → Geohash
-```
-
-The internal geographic representation MUST be based on latitude/longitude and Geohash rather than directly using Maidenhead characters as a spatial grid.
-
-Example:
-
-```text
-JN45AB
-    ↓
-latitude / longitude
-    ↓
-Geohash
-    ↓
-geographic cell
-```
-
-The algorithm MUST NOT assume that Maidenhead cells have uniform metric dimensions.
+### 3.3 Rule 1: No Transitive Propagation
+To avoid transitive channel locking across long ranges, **adjacent cells are forbidden from having the same primary configuration**:
+$$\text{Primary}(u) \ne \text{Primary}(v) \quad \text{where } (u, v) \in E$$
 
 ---
 
-# 4. Geohash
+# 4. Reference Algorithms
 
-Geohash is used to discretize the geographic space.
-
-The implementation MUST support configurable Geohash precision.
-
-The initial simulation SHOULD use approximately 5-character Geohashes.
-
-However, Geohash precision MUST NOT be hard-coded into the algorithm.
-
-It should be possible to run simulations with different precisions, for example:
-
+### 4.1 Geohash Encoding (`EncodeGeohash`)
 ```text
-4
-5
-6
-7
+Input: latitude, longitude, precision
+Output: geohash_string
+
+Let BASE32 = "0123456789bcdefghjkmnpqrstuvwxyz"
+Let lat_min = -90.0, lat_max = 90.0
+Let lon_min = -180.0, lon_max = 180.0
+
+Initialize geohash = []
+Let total_bits = precision * 5
+Initialize current_val = 0
+
+For bit_idx from 0 to total_bits - 1:
+    If bit_idx is even:
+        Let mid = (lon_min + lon_max) / 2
+        If longitude >= mid:
+            current_val = (current_val << 1) | 1
+            lon_min = mid
+        Else:
+            current_val = (current_val << 1) | 0
+            lon_max = mid
+    Else:
+        Let mid = (lat_min + lat_max) / 2
+        If latitude >= mid:
+            current_val = (current_val << 1) | 1
+            lat_min = mid
+        Else:
+            current_val = (current_val << 1) | 0
+            lat_max = mid
+
+    If (bit_idx + 1) mod 5 == 0:
+        Append BASE32[current_val] to geohash
+        current_val = 0
+
+Return concatenate(geohash)
 ```
 
-The selected precision must be treated as an algorithm parameter.
-
----
-
-# 5. Radio Range Model
-
-The initial nominal radio range is:
-
+### 4.2 Primary Configuration Tessellation (`GetPrimaryByTessellation`)
+Compliant devices MUST map Geohashes to their primary configuration using this local, graph-free, modular shift pattern. This guarantees adjacent cells receive different primary configuration IDs.
 ```text
-10 km
+Input: geohash_str
+Output: configuration_id (integer 0 to 303)
+
+Let lat, lon, lat_err, lon_err = DecodeGeohash(geohash_str)
+Let lat_height = 2.0 * lat_err
+Let lon_width = 2.0 * lon_err
+
+Let Y = Round((lat + 90.0) / lat_height)
+Let X = Round((lon + 180.0) / lon_width)
+
+Let color_id = (Y * 17 + X) mod 304
+If color_id < 0:
+    color_id = color_id + 304
+
+Return color_id
 ```
 
-This is a mathematical simulation parameter, NOT a guarantee of actual PMR446 coverage.
-
-Real PMR446 coverage depends on:
-
-- terrain;
-- antenna height;
-- buildings;
-- vegetation;
-- transmitter power;
-- receiver sensitivity;
-- interference;
-- Fresnel clearance;
-- regulatory limitations.
-
-The simulator MUST therefore describe 10 km as a configurable theoretical compatibility radius.
-
-The default value is:
-
+### 4.3 Local Profile Expansion (`ResolveLocalProfile`)
+Computes the complete local profile set $\mathcal{C}(u)$ of size $K$ without building a global regional graph.
 ```text
-radio_radius_km = 10.0
-```
+Input: lat, lon, precision, radius_km, K
+Output: profile_dictionary { geohash, primary, configurations }
 
-The implementation MUST allow this value to be changed.
+Let cell_geohash = EncodeGeohash(lat, lon, precision)
+Let primary_id = GetPrimaryByTessellation(cell_geohash)
 
-Examples:
+If K <= 1:
+    Return { geohash: cell_geohash, primary: primary_id, configurations: [primary_id] }
 
-```text
-5 km
-10 km
-15 km
-20 km
-```
+Let lat_step = radius_km / 111.1
+Let cos_lat = cos(radians(lat))
+Let lon_step = lat_step / max(0.01, cos_lat)
 
----
+Let cell_lat, cell_lon, lat_err, lon_err = DecodeGeohash(cell_geohash)
+Let step_lat_deg = 2.0 * lat_err
+Let step_lon_deg = 2.0 * lon_err
 
-# 6. Geographic Graph
+Let lat_bound = ceiling(lat_step / step_lat_deg) + 1
+Let lon_bound = ceiling(lon_step / step_lon_deg) + 1
 
-The geographic space must be represented as a graph.
+Initialize neighbors = EmptySet()
 
-Each Geohash cell is a node.
+For i from -lat_bound to lat_bound:
+    For j from -lon_bound to lon_bound:
+        Let test_lat = lat + i * step_lat_deg
+        Let test_lon = lon + j * step_lon_deg
+        
+        Let gh = EncodeGeohash(test_lat, test_lon, precision)
+        If gh != cell_geohash:
+            Let gh_lat, gh_lon = CenterCoordinates(gh)
+            Let dist = HaversineDistance(lat, lon, gh_lat, gh_lon)
+            If dist <= radius_km:
+                neighbors.add( (dist, gh) )
 
-Two cells are connected when their representative geographic points are within the configured radio radius.
+# Sort neighbors ascending by distance, and alphabetically by geohash for stable ties
+Sort neighbors
 
-For the first implementation, the center point of each Geohash cell may be used as its representative point.
+Initialize allocated_configs = [primary_id]
+Initialize seen_configs = {primary_id}
 
-The graph is:
+For each (dist, gh) in neighbors:
+    If length(allocated_configs) >= K:
+        Break
+    Let neigh_primary = GetPrimaryByTessellation(gh)
+    If neigh_primary not in seen_configs:
+        Add neigh_primary to allocated_configs
+        Add neigh_primary to seen_configs
 
-```text
-G = (V, E)
-```
-
-where:
-
-```text
-V = Geohash cells
-
-E = pairs of cells whose geographic distance <= radio radius
-```
-
-The distance calculation MUST use a proper geographic distance function, preferably Haversine distance.
-
-Do not calculate radio compatibility using differences in latitude/longitude alone.
-
----
-
-# 7. Core Compatibility Requirement
-
-The fundamental requirement is:
-
-For two geographic cells A and B:
-
-```text
-distance(A, B) <= radio_radius
-```
-
-then:
-
-```text
-configurations(A) ∩ configurations(B) != ∅
-```
-
-In words:
-
-> Any two geographically compatible cells must share at least one radio configuration.
-
-This is the primary invariant that the simulator must verify.
-
----
-
-# 8. Primary Configuration
-
-Every geographic cell MUST have exactly one PRIMARY configuration.
-
-The primary configuration is the default configuration presented to the user.
-
-Example:
-
-```text
-Cell: JN45AB-equivalent Geohash
-
-PRIMARY:
-CH3 / CTCSS 77.0
-```
-
-Important:
-
-**Nearby cells MUST NOT necessarily have the same primary configuration.**
-
-In fact, the algorithm SHOULD generally attempt to assign different primary configurations to adjacent cells.
-
-The following is explicitly allowed:
-
-```text
-Cell A:
-PRIMARY = CH3 / 77.0
-
-Cell B:
-PRIMARY = CH5 / 88.5
-```
-
-even if A and B are only a few kilometres apart.
-
-The compatibility requirement is instead satisfied by their complete configuration sets.
-
----
-
-# 9. Configuration Set
-
-Each cell has:
-
-```text
-configuration_set(cell)
-```
-
-The set contains:
-
-```text
-PRIMARY
-+
-NEIGHBOUR configurations
-```
-
-For example:
-
-```text
-Cell A
-
-PRIMARY:
-CH3 / 77.0
-
-NEIGHBOURS:
-CH7 / 67.0
-CH2 / 94.8
-CH6 / 123.0
-```
-
-Therefore:
-
-```text
-configuration_set(A) =
-{
-    CH3 / 77.0,
-    CH7 / 67.0,
-    CH2 / 94.8,
-    CH6 / 123.0
+Return {
+    geohash: cell_geohash,
+    primary: primary_id,
+    configurations: allocated_configs
 }
 ```
 
-The number of configurations per cell MUST be configurable.
-
-The simulator MUST test different values of:
-
+### 4.4 Alphabetical Greedy Graph Coloring (`AllocatePrimaryColoring`)
+Used by simulators to construct and optimize primary assignments across a global bounded region.
 ```text
-K = 1
-K = 2
-K = 3
-K = 4
-...
-```
+Input: nodes (set of geohashes), adjacency (map of node to neighbor set)
+Output: primary_assignments (map of node to config_id)
 
-where K includes the primary configuration.
+Let sorted_nodes = SortAlphabetically(nodes)
+Initialize primary_assignments = EmptyMap()
 
-The objective is to determine the smallest practical K that satisfies the geographic compatibility constraint.
+For each node in sorted_nodes:
+    Let neighbor_colors = EmptySet()
+    For each neighbor in adjacency[node]:
+        If neighbor in primary_assignments:
+            neighbor_colors.add(primary_assignments[neighbor])
+            
+    Let assigned_color = -1
+    For color_id from 0 to 303:
+        If color_id not in neighbor_colors:
+            assigned_color = color_id
+            Break
+            
+    If assigned_color == -1:
+        assigned_color = GetPrimaryByTessellation(node)
+        
+    primary_assignments[node] = assigned_color
 
----
-
-# 10. Why Primary Configurations Must Not Be Shared Automatically
-
-Do NOT implement the rule:
-
-```text
-distance(A, B) <= 10 km
-    →
-primary(A) == primary(B)
-```
-
-This creates a transitive propagation problem.
-
-For example:
-
-```text
-A --10km-- B --10km-- C
-```
-
-would imply:
-
-```text
-primary(A) = primary(B)
-primary(B) = primary(C)
-```
-
-and therefore:
-
-```text
-primary(A) = primary(C)
-```
-
-even if A and C are significantly more distant than the intended communication radius.
-
-Instead, compatibility must be established through configuration-set intersection.
-
-The desired relationship is:
-
-```text
-A ∩ B != ∅
-```
-
-rather than:
-
-```text
-PRIMARY(A) == PRIMARY(B)
+Return primary_assignments
 ```
 
 ---
 
-# 11. Primary Assignment
+# 5. Simulation and Metric Guidelines
 
-Primary assignment is a graph-coloring-like problem.
+### 5.1 The Italy Bounding Box (IT-BBOX-01)
+Simulators MUST support the standard geographical test benchmark `IT-BBOX-01`:
+- **Min Latitude**: $35.5^\circ \text{ N}$
+- **Max Latitude**: $47.1^\circ \text{ N}$
+- **Min Longitude**: $6.6^\circ \text{ E}$
+- **Max Longitude**: $18.5^\circ \text{ E}$
 
-Adjacent cells SHOULD receive different primary configurations whenever possible.
+### 5.2 Metrics Framework
+Every simulation run MUST calculate:
+- **Cell Count ($N$)**: Total unique Geohash vertices.
+- **Edge Count ($M$)**: Total unique connected edges ($\le R_{\text{radio}}$).
+- **Maximum Degree ($\Delta(G)$)**: Maximum neighbor count.
+- **Average Degree ($\bar{d}(G)$)**: $2M/N$.
+- **Uncovered Edges ($U_K$)**: $\Big| \big\{ (u, v) \in E \mid \mathcal{C}(u) \cap \mathcal{C}(v) = \emptyset \big\} \Big|$ for a given $K$.
+- **Satisfied Link % ($P_K$)**: $(1 - U_K / M) \times 100\%$.
+- **Minimum Successful K ($K_{\text{successful}}$)**: $\min \{ K \in \mathbb{N} \mid U_K = 0 \}$.
 
-The 304 available configurations provide a large palette.
+### 5.3 Performance Optimizations
+For large-scale simulations, O(N²) geographic graph comparisons are prohibited. Simulators SHOULD use a **2D Spatial Grid Bucketing** index of step size $D_{\text{lat}} = R_{\text{radio}}/111.1$ and $D_{\text{lon}} = D_{\text{lat}}/\cos(\text{max\_abs\_lat})$ to ensure $O(N)$ average lookup times.
 
-The implementation should use a deterministic graph coloring strategy.
-
-The exact algorithm is not prescribed.
-
-Candidate approaches include:
-
-- greedy graph coloring;
-- deterministic DSATUR;
-- constrained coloring;
-- deterministic pseudo-random ordering;
-- hybrid graph-coloring strategies.
-
-The algorithm MUST be deterministic.
-
-Given the same:
-
-```text
-geographic input
-algorithm version
-parameters
-```
-
-it MUST produce the same primary assignments.
+### 5.4 JSON Export Schema
+To ensure scientific reproducibility, simulation results exported to JSON MUST validate perfectly against the schema specified in [`docs/simulation.md` (Standard JSON Schema)](file:///Users/denismaggiorotto/Documents/Progetti/Personali/repos/pmr446-geoconfig/docs/simulation.md).
 
 ---
 
-# 12. Determinism
-
-The algorithm MUST NOT depend on:
-
-- database state;
-- network services;
-- random entropy;
-- current time;
-- machine-specific state;
-- iteration order of unordered data structures.
-
-If pseudo-randomization is useful, it MUST use a deterministic seed derived from stable algorithm inputs.
-
-For example:
-
-```text
-seed =
-hash(
-    algorithm_version,
-    geohash,
-    configuration_space_version
-)
-```
-
-The exact seed strategy may be chosen by the implementation.
-
----
-
-# 13. Neighbour Configuration Assignment
-
-After primary configurations have been assigned, the algorithm must ensure geographic compatibility.
-
-For every graph edge:
-
-```text
-A -- B
-```
-
-the algorithm must verify:
-
-```text
-configuration_set(A) ∩ configuration_set(B) != ∅
-```
-
-If the intersection is empty, one or more configurations must be added to one or both cells, subject to the maximum K value.
-
-A simple initial strategy is:
-
-```text
-configuration_set(A) += PRIMARY(B)
-```
-
-or:
-
-```text
-configuration_set(B) += PRIMARY(A)
-```
-
-when this does not exceed K.
-
-More advanced optimization strategies may be implemented later.
-
----
-
-# 14. Optimization Objective
-
-The implementation SHOULD optimize the following objectives in order:
-
-### Hard constraint
-
-Every geographically compatible pair MUST have at least one common configuration.
-
-### Primary optimization
-
-Minimize:
-
-```text
-K
-```
-
-the number of configurations assigned to each cell.
-
-### Secondary optimization
-
-Minimize:
-
-```text
-total number of configurations used
-```
-
-### Tertiary optimization
-
-Maximize geographic reuse of configurations.
-
-### Additional optimization
-
-Avoid unnecessary sharing between geographically distant cells where practical.
-
-The optimization algorithm MUST NOT sacrifice the hard compatibility constraint.
-
----
-
-# 15. Simulation
-
-The project MUST include a simulator.
-
-The simulator should be able to generate a geographic test area and construct the corresponding graph.
-
-At minimum it should support an Italy-sized geographic bounding box.
-
-A real geographic polygon is preferable for future versions, but the initial implementation may use a bounding box.
-
-The simulator MUST report:
-
-```text
-number of geographic cells
-number of graph edges
-maximum node degree
-average node degree
-number of primary configurations used
-```
-
-For each tested K it MUST report:
-
-```text
-K
-number of uncovered edges
-percentage of satisfied edges
-maximum configuration-set size
-average configuration-set size
-```
-
-Example:
-
-```text
-K = 1
-covered: 72.4%
-
-K = 2
-covered: 98.1%
-
-K = 3
-covered: 100.0%
-```
-
-The exact results are expected to depend on the geographic sampling and algorithm.
-
-Do not hard-code expected numerical results.
-
----
-
-# 16. Minimum-K Search
-
-The simulator MUST automatically test increasing values of K.
-
-For example:
-
-```text
-K = 1
-K = 2
-K = 3
-K = 4
-K = 5
-...
-```
-
-The first K satisfying:
-
-```text
-uncovered_edges == 0
-```
-
-should be reported as:
-
-```text
-minimum_successful_K
-```
-
-This value is an empirical result of the selected algorithm and simulation model.
-
-It MUST NOT be presented as a universal mathematical minimum unless proven.
-
----
-
-# 17. Configuration Encoding
-
-Every configuration should have a stable integer ID.
-
-There are 304 IDs:
-
-```text
-0 ... 303
-```
-
-A simple deterministic mapping may be:
-
-```text
-id = (channel - 1) * 38 + tone_index
-```
-
-This results in:
-
-```text
-0..37    = CH1
-38..75   = CH2
-...
-266..303 = CH8
-```
-
-The implementation MUST provide conversion functions:
-
-```text
-config_id(channel, tone)
-```
-
-and:
-
-```text
-config_from_id(id)
-```
-
-The mapping MUST remain stable within a major algorithm version.
-
----
-
-# 18. API
-
-The implementation should expose a simple high-level API.
-
-Example:
-
-```python
-profile = get_radio_profile(
-    latitude=45.0703,
-    longitude=7.6869
-)
-```
-
-or:
-
-```python
-profile = get_radio_profile_from_locator("JN45AB")
-```
-
-The result should contain at least:
-
-```python
-{
-    "geohash": "...",
-    "primary": {
-        "channel": 3,
-        "ctcss": 77.0
-    },
-    "configurations": [
-        {
-            "channel": 3,
-            "ctcss": 77.0
-        },
-        {
-            "channel": 7,
-            "ctcss": 67.0
-        }
-    ]
-}
-```
-
-The API should also expose algorithm metadata:
-
-```python
-{
-    "algorithm": "PMR446 GeoConfig",
-    "version": "1.0",
-    "geohash_precision": 5,
-    "radio_radius_km": 10.0
-}
-```
-
----
-
-# 19. CLI
-
-Provide a command-line interface.
-
-Example:
-
-```bash
-PMR446 GeoConfig JN45AB
-```
-
-Output:
-
-```text
-PMR446 GeoConfig v1.0
-
-Locator: JN45AB
-Geohash: ...
-
-Primary:
-  CH3 / CTCSS 77.0 Hz
-
-Compatible configurations:
-  CH3 / CTCSS 77.0 Hz
-  CH7 / CTCSS 67.0 Hz
-  CH2 / CTCSS 94.8 Hz
-```
-
-The CLI should also support coordinates:
-
-```bash
-PMR446 GeoConfig --lat 45.0703 --lon 7.6869
-```
-
-and simulation:
-
-```bash
-PMR446 GeoConfig simulate
-```
-
-Useful simulation options:
-
-```bash
---radius 10
---precision 5
---max-k 8
-```
-
----
-
-# 20. Testing
-
-The project MUST have automated tests.
-
-Tests MUST cover:
-
-### Configuration space
-
-Verify:
-
-```text
-8 channels
-38 CTCSS tones
-304 configurations
-```
-
-### Configuration mapping
-
-Verify that every ID maps uniquely to one configuration.
-
-### Geographic calculations
-
-Verify:
-
-- Geohash encoding;
-- Geohash decoding;
-- center calculation;
-- Haversine distance.
-
-### Determinism
-
-Calling the allocator twice with identical input MUST produce identical results.
-
-### Compatibility
-
-For every simulated edge:
-
-```text
-configuration_set(A) ∩ configuration_set(B)
-```
-
-must not be empty.
-
-### Non-neighbour cells
-
-The algorithm is NOT required to guarantee communication between cells outside the configured radius.
-
-### Boundary conditions
-
-Test:
-
-- exact radius;
-- slightly below radius;
-- slightly above radius;
-- Geohash cell boundaries;
-- northern/southern latitude extremes used by the simulator.
-
----
-
-# 21. Property-Based Testing
-
-Where practical, use property-based testing.
-
-Important properties include:
-
-```text
-len(CONFIGURATIONS) == 304
-```
-
-and:
-
-```text
-distance(A, B) <= radius
-→ intersection(A, B) != empty
-```
-
-for every generated compatible pair.
-
-The test suite should also verify deterministic output across repeated executions.
-
----
-
-# 22. Reproducibility
-
-A simulation result MUST be reproducible.
-
-A simulation should expose all parameters necessary to reproduce it:
-
-```text
-algorithm version
-geohash precision
-radio radius
-geographic bounds
-configuration-space version
-K
-```
-
-The simulator should optionally export its result as JSON.
-
-Example:
-
-```json
-{
-  "algorithm": "PMR446 GeoConfig",
-  "version": "1.0",
-  "geohash_precision": 5,
-  "radio_radius_km": 10.0,
-  "configuration_count": 304,
-  "minimum_successful_k": 3
-}
-```
-
-The numerical value of `minimum_successful_k` must be generated by the simulation, not hard-coded.
-
----
-
-# 23. Performance
-
-The initial implementation should prioritize correctness and clarity over extreme performance.
-
-However, do NOT implement an O(N²) geographic graph construction if the number of cells becomes large.
-
-Use a spatial index or candidate-neighbour strategy where appropriate.
-
-Possible approaches:
-
-- KD-tree;
-- spatial hashing;
-- Geohash neighbour expansion;
-- latitude/longitude buckets;
-- R-tree.
-
-The final algorithm should be capable of running a country-scale simulation in a reasonable amount of time on a normal desktop computer.
-
----
-
-# 24. Separation of Concerns
-
-The project should be divided into logical modules.
-
-Suggested structure:
-
-```text
-src/
-    PMR446 GeoConfig/
-        __init__.py
-        config.py
-        geohash.py
-        geography.py
-        graph.py
-        allocator.py
-        profile.py
-        maidenhead.py
-        cli.py
-        simulator.py
-
-tests/
-    test_config.py
-    test_geohash.py
-    test_geography.py
-    test_graph.py
-    test_allocator.py
-    test_determinism.py
-    test_simulation.py
-
-docs/
-    algorithm.md
-    simulation.md
-
-examples/
-    basic.py
-
-pyproject.toml
-README.md
-AGENTS.md
-```
-
-The exact structure may be changed if a better architecture is justified.
-
----
-
-# 25. Important Algorithmic Distinction
-
-Do not confuse these three concepts:
-
-### Geographic proximity
-
-```text
-distance(A, B) <= 10 km
-```
-
-### Primary configuration
-
-```text
-primary(A)
-```
-
-### Communication compatibility
-
-```text
-configuration_set(A) ∩ configuration_set(B) != ∅
-```
-
-They are deliberately different.
-
-The purpose of the algorithm is to transform geographic proximity into configuration-set compatibility without forcing primary configurations to be equal.
-
----
-
-# 26. Future Extensions
-
-The implementation should be designed so that the following can be added later:
-
-- different radio-radius models;
-- terrain-aware propagation;
-- elevation data;
-- real Italian geographic polygons;
-- other countries;
-- other PMR standards;
-- 16-channel PMR devices;
-- additional CTCSS configurations;
-- DCS;
-- mobile/roaming use;
-- dynamic configuration;
-- weighted geographic density;
-- population-based optimization;
-- interference-aware optimization;
-- frequency/channel reuse analysis.
-
-Do not implement these features unless required by the initial specification.
-
-However, avoid architectural decisions that would make them impossible.
-
----
-
-# 27. Important Radio Engineering Disclaimer
-
-The algorithm does NOT guarantee that two stations will physically communicate.
-
-The 10 km value is a design parameter used to establish a geographic compatibility graph.
-
-Actual radio coverage depends on environmental and radio conditions.
-
-The algorithm guarantees only the logical property:
-
-```text
-if two simulated geographic nodes are considered neighbours,
-their assigned configuration sets contain at least one common
-channel/CTCSS combination.
-```
-
-It does not guarantee RF propagation.
-
----
-
-# 28. Versioning
-
-The algorithm must expose a version.
-
-Initial version:
-
-```text
-PMR446 GeoConfig v1.0
-```
-
-Changes that modify:
-
-- configuration mapping;
-- CTCSS ordering;
-- Geohash strategy;
-- primary allocation;
-- neighbour allocation;
-- compatibility semantics;
-
-should result in an algorithm version change.
-
-The version must be included in exported profiles and simulation results.
-
----
-
-# 29. Acceptance Criteria
-
-The implementation is considered successful when all of the following are true:
-
-1. It supports the 8 × 38 PMR446 configuration space.
-2. It accepts latitude/longitude.
-3. It accepts Maidenhead locators.
-4. It converts geographic coordinates to Geohash.
-5. It builds a geographic compatibility graph.
-6. It uses a configurable nominal radio radius, defaulting to 10 km.
-7. It assigns exactly one deterministic primary configuration per cell.
-8. Adjacent cells are not forced to have the same primary configuration.
-9. Each cell can have a configurable number K of total configurations.
-10. The simulator finds the first K for which all compatible edges have at least one shared configuration.
-11. The result is deterministic.
-12. The simulator reports meaningful statistics.
-13. Automated tests verify the core compatibility invariant.
-14. No central database or network service is required.
-15. The complete project can be reproduced from the documented algorithm and parameters.
-
----
-
-# 30. Development Priority
-
-Implement the project in the following order:
-
-### Phase 1 — Radio model
-
-Implement:
-
-```text
-8 channels
-38 CTCSS
-304 configurations
-```
-
-### Phase 2 — Geography
-
-Implement:
-
-```text
-latitude/longitude
-Maidenhead
-Geohash
-Haversine
-```
-
-### Phase 3 — Graph
-
-Implement:
-
-```text
-Geohash cells
-neighbour detection
-10 km radius
-```
-
-### Phase 4 — Primary allocator
-
-Implement deterministic graph coloring.
-
-### Phase 5 — Compatibility allocator
-
-Implement configuration-set expansion and verify:
-
-```text
-A ∩ B != ∅
-```
-
-for every compatible pair.
-
-### Phase 6 — Optimization
-
-Run:
-
-```text
-K = 1...
-```
-
-and determine the first successful K.
-
-### Phase 7 — CLI/API
-
-Expose the allocator to users.
-
-### Phase 8 — Documentation
-
-Document:
-
-- algorithm;
-- assumptions;
-- simulation methodology;
-- results;
-- limitations.
-
----
-
-# 31. Engineering Principle
-
-Do not optimize prematurely.
-
-The first implementation must be:
-
-- simple;
-- deterministic;
-- testable;
-- inspectable;
-- mathematically verifiable.
-
-The algorithm should produce enough intermediate data to allow a developer to answer:
-
-> "Why did this QTH receive this channel and CTCSS combination?"
-
-The allocation process should therefore be explainable rather than being an opaque hash function.
-
----
-
-# 32. Final Goal
-
-The final system should make it possible for a user to enter a radio amateur QTH such as:
-
-```text
-JN45AB
-```
-
-and obtain a deterministic PMR446 configuration profile such as:
-
-```text
-PMR446 GeoConfig v1.0
-
-Location:
-JN45AB
-
-Primary:
-CH3 / CTCSS 77.0 Hz
-
-Additional compatible configurations:
-CH7 / CTCSS 67.0 Hz
-CH2 / CTCSS 94.8 Hz
-CH6 / CTCSS 123.0 Hz
-```
-
-Two users located within the configured geographic compatibility radius should have at least one configuration in common, while their primary configurations may remain different.
-
-The central design principle is:
-
-> **Geographic proximity creates configuration overlap, not necessarily identical primary configurations.**
-
-The algorithm must use this principle throughout its implementation and optimization.
+# 6. Verification & Property-Based Testing
+
+Automated testing suites MUST verify the following invariants:
+1. **Bijective Mapping**: `config_from_id(config_id(c, t))` matches `(c, t)` exactly for all 304 positions.
+2. **Determinism**: Identical parameter arrays (inputs, precision, radius) yield byte-identical primary and configuration set assignments.
+3. **Standby-Calling Coverage**: For every edge where $d(A, B) \le R_{\text{radio}}$, check that $\mathcal{C}(A) \cap \mathcal{C}(B) \ne \emptyset$ for $K \ge K_{\text{successful}}$.
+4. **Local/Global Convergence**: Profile lists generated locally via `ResolveLocalProfile` must be mathematically equivalent to profile lists queried from the global geographical graph.

@@ -1,6 +1,7 @@
 const CACHE_NAME = 'pmr446-geoconfig-cache-v1';
 const ASSETS = [
-  'explorer.html',
+  './',
+  'index.html',
   'manifest.json',
   'icon.svg',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
@@ -63,7 +64,7 @@ self.addEventListener('fetch', (event) => {
         return networkResponse;
       }).catch(() => {
         if (event.request.mode === 'navigate') {
-          return caches.match('explorer.html');
+          return caches.match('index.html');
         }
       });
     })
