@@ -71,15 +71,17 @@ This guarantees all neighbors within $R_{\text{radio}}$ are captured in $O(N)$ a
 
 ## 4. Configuration Allocation Algorithm
 
-### The Core Invariant
-Any two geographically adjacent cells (connected in the graph) must share at least one PMR446 configuration:
-$$\forall (u, v) \in E \implies \mathcal{C}(u) \cap \mathcal{C}(v) \ne \emptyset$$
+### The Core Invariant (Symmetric Standby-Calling)
+Any two geographically adjacent cells (connected in the graph) must support mutual direct standby-calling:
+$$\forall (u, v) \in E \implies \text{Primary}(v) \in \mathcal{C}(u) \quad \text{and} \quad \text{Primary}(u) \in \mathcal{C}(v)$$
+
+This guarantees that either operator can immediately tune to and call the other on their designated standby frequency.
 
 ### Rule 1: No Transitive Propagation
-To avoid a chain reaction where adjacent cells are forced to have identical configurations across long distances, **nearby cells do not necessarily share the same Primary configuration**.
-$$\text{Primary}(u) \ne \text{Primary}(v) \text{ is permitted and encouraged.}$$
-Instead, compatibility is guaranteed via the intersection of their complete configuration sets:
-$$\mathcal{C}(u) = \{ \text{Primary}(u) \} \cup \text{NeighborConfigs}(u)$$
+To avoid a chain reaction where adjacent cells are forced to have identical configurations across long distances, **nearby cells do not share the same Primary configuration**.
+$$\text{Primary}(u) \ne \text{Primary}(v) \quad \text{is mathematically guaranteed.}$$
+Instead, compatibility is established because each cell's set contains its neighbors' unique primary standby configurations:
+$$\mathcal{C}(u) = \{ \text{Primary}(u) \} \cup \{ \text{Primary}(v) \mid (u, v) \in E \}$$
 
 ### Primary Assignment Strategies
 1. **2D Coordinate-Based Modular Tessellation Grid**:
@@ -90,13 +92,13 @@ $$\mathcal{C}(u) = \{ \text{Primary}(u) \} \cup \text{NeighborConfigs}(u)$$
    Colors the graph $G$ using the 304-color palette in a stable, alphabetical sorting of Geohashes. This is a global simulation alternative that also ensures local channel differentiation.
 
 ### Compatibility Allocation Strategy
-To expand configuration sets up to size $K$ to satisfy the core invariant:
+To expand configuration sets up to size $K$ to satisfy the standby-calling invariant:
 1. Initialize $\mathcal{C}(u) = \{ \text{Primary}(u) \}$ for all $u$.
-2. Sort edges $E$ lexicographically.
-3. For each edge $(u, v) \in E$:
-   - If $\mathcal{C}(u) \cap \mathcal{C}(v) \ne \emptyset$, continue (satisfied).
-   - If $|\mathcal{C}(u)| < K$ and $|\mathcal{C}(v)| < K$:
-     - Add $\text{Primary}(v)$ to $\mathcal{C}(u)$ if $|\mathcal{C}(u)| \le |\mathcal{C}(v)|$, else add $\text{Primary}(u)$ to $\mathcal{C}(v)$. (With alphabetical tie-breaker).
-   - If only $u$ has space, add $\text{Primary}(v)$ to $\mathcal{C}(u)$.
-   - If only $v$ has space, add $\text{Primary}(u)$ to $\mathcal{C}(v)$.
-   - If neither has space, the edge remains unsatisfied for this $K$.
+2. For each cell $u \in V$:
+   - Identify all its adjacent neighbor cells $v$ where $(u, v) \in E$.
+   - Sort these neighbors by geographic distance (ascending), using Geohash alphabetical order as a stable tie-breaker.
+   - For each neighbor $v$ in sorted order:
+     - If $|\mathcal{C}(u)| < K$:
+       - Add $\text{Primary}(v)$ to $\mathcal{C}(u)$ (if not already present).
+     - Else:
+       - Stop adding. The remaining further-out neighbors remain incompatible (unsatisfied) for this capacity limit $K$.

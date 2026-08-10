@@ -97,6 +97,7 @@
             flex: 1;
             height: 100%;
             z-index: 1;
+            background: #0b0f19 !important;
         }
 
         /* Side Dashboard Card Style */
@@ -453,7 +454,7 @@
             <div class="section">
                 <div class="section-title">🔍 Location Query</div>
                 <div class="search-group">
-                    <input type="text" id="searchInput" placeholder="Maidenhead (JN45AB) or Lat, Lon..." value="JN45AB" style="flex: 1;">
+                    <input type="text" id="searchInput" placeholder="Maidenhead (JN45AB) or Lat, Lon..." style="flex: 1;">
                     <button id="searchBtn" style="padding: 0.6rem 0.9rem;">Locate</button>
                     <button id="geoBtn" title="Use current physical location" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: var(--accent-blue); padding: 0.6rem; border-radius: 6px; cursor: pointer; transition: background 0.2s; display: flex; align-items: center; justify-content: center;">📍</button>
                 </div>
@@ -482,10 +483,13 @@
                 <div class="control-group">
                     <div class="control-label">
                         <span>Set Capacity (K)</span>
-                        <span id="lblK" class="val">4 configs</span>
+                        <span id="lblK" class="val">9 configs</span>
                     </div>
-                    <input type="range" id="paramK" min="1" max="8" value="4" step="1">
+                    <input type="range" id="paramK" min="1" max="16" value="9" step="1">
                 </div>
+                <button id="resetDefaultsBtn" style="width: 100%; margin-top: 1rem; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: var(--text-muted); padding: 0.5rem; border-radius: 6px; font-weight: 600; cursor: pointer; transition: background 0.2s, color 0.2s; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+                    🔄 Reset Defaults
+                </button>
             </div>
 
             <!-- Profile Dashboard -->
@@ -518,6 +522,10 @@
                     <div class="config-list" id="outConfigList">
                         <!-- Dynamic config rows go here -->
                     </div>
+                    
+                    <button id="exportChirpBtn" style="width: 100%; margin-top: 1rem; background: var(--accent-blue); border: none; color: #0b0f19; padding: 0.75rem; border-radius: 6px; font-weight: 600; cursor: pointer; transition: filter 0.2s; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+                        📻 Export CHIRP CSV
+                    </button>
                 </div>
             </div>
 
@@ -799,7 +807,7 @@
                 const n_lon_min = n_lon - n_lon_err;
                 const n_lon_max = n_lon + n_lon_err;
 
-                // Find the closest point on the neighbor geohash box to our actual position (the very beginning of the cell)
+                // Find closest point on neighbor geohash box to exact clicked center_lat/lon
                 const closest_lat = Math.max(n_lat_min, Math.min(n_lat_max, center_lat));
                 const closest_lon = Math.max(n_lon_min, Math.min(n_lon_max, center_lon));
                 
@@ -810,7 +818,7 @@
         }
 
         // 2.8 Local Profile Generator Facade
-        async function getRadioProfile(latitude, longitude, precision = 5, radio_radius_km = 10.0, k = 4) {
+        async function getRadioProfile(latitude, longitude, precision = 5, radio_radius_km = 10.0, k = 9) {
             const cell_geohash = encodeGeohash(latitude, longitude, precision);
             const primary_id = getPrimaryByTessellation(cell_geohash);
             const [prim_chan, prim_tone] = configFromId(primary_id);
@@ -829,7 +837,7 @@
             // Reachable neighbors are those whose closest boundary is within our radio radius (dist <= radio_radius_km)
             const reachable_neighbors = neighbors.filter(n => n.dist <= radio_radius_km);
             
-            // Sort primarily by closest-point distance, secondarily alphabetically
+            // Sort primarily by closest boundary distance, secondarily alphabetically
             reachable_neighbors.sort((a, b) => {
                 if (Math.abs(a.dist - b.dist) < 1e-9) {
                     return a.gh.localeCompare(b.gh);
@@ -851,13 +859,13 @@
             
             const configs = allocated_ids.map(id => {
                 const [chan, tone] = configFromId(id);
-                return { channel: chan, ctcss: tone };
+                return { channel: chan, tone: tone }; // Keep compatibility format
             });
             
             return {
                 geohash: cell_geohash,
                 primary: { channel: prim_chan, ctcss: prim_tone },
-                configurations: configs,
+                configurations: configs.map(c => ({ channel: c.channel, ctcss: c.tone })),
                 neighbors: neighbors // Return all local grids (including the unreachable ones) for full map visualization
             };
         }
@@ -868,14 +876,15 @@
         let map, centerMarker, rangeCircle, activeCellPolygon;
         let neighborPolygonsGroup = L.layerGroup();
         
-        let currentLat = 45.0625, currentLon = 8.0417; // Defaulting near JN45AB
+        let currentLat = null, currentLon = null;
+        let currentProfile = null;
 
         // Initialize Map
         function initMap() {
             // Leaflet map setup using dark matter tiles (gorgeous sleek look)
             map = L.map('map', {
-                center: [currentLat, currentLon],
-                zoom: 12,
+                center: [15, 0],
+                zoom: 2,
                 zoomControl: false
             });
             
@@ -894,19 +903,26 @@
             map.on('click', async function(e) {
                 currentLat = e.latlng.lat;
                 currentLon = e.latlng.lng;
+                if (map.getZoom() < 10) {
+                    map.setView([currentLat, currentLon], 12);
+                }
                 await updateProfile();
             });
         }
 
-        // Render cell overlays on map
         async function drawOverlays(prof, precision, radio_radius_km) {
+            const k = parseInt(document.getElementById('paramK').value);
+
             // 1. Clear previous drawings
             if (centerMarker) map.removeLayer(centerMarker);
             if (rangeCircle) map.removeLayer(rangeCircle);
             if (activeCellPolygon) map.removeLayer(activeCellPolygon);
             neighborPolygonsGroup.clearLayers();
 
-            // 2. Draw Range Circle
+            // 2. Decode Selected Geohash Cell Box and Center coordinates
+            const [c_lat, c_lon, lat_err, lon_err] = decodeGeohash(prof.geohash);
+
+            // 3. Draw Range Circle centered on exact clicked coordinates
             rangeCircle = L.circle([currentLat, currentLon], {
                 radius: radio_radius_km * 1000,
                 color: 'rgba(255, 255, 255, 0.15)',
@@ -916,8 +932,7 @@
                 dashArray: '4, 6'
             }).addTo(map);
 
-            // 3. Draw Selected Geohash Cell Box
-            const [c_lat, c_lon, lat_err, lon_err] = decodeGeohash(prof.geohash);
+            // 4. Draw Selected Geohash Cell Box
             const lat_min = c_lat - lat_err;
             const lat_max = c_lat + lat_err;
             const lon_min = c_lon - lon_err;
@@ -935,9 +950,23 @@
                 weight: 2
             }).addTo(map);
 
+            const p_chan = prof.primary.channel;
+            const p_tone_num = getToneNumber(prof.primary.ctcss);
+
+            activeCellPolygon.bindTooltip(`
+                <div style="text-align: center; line-height: 1.3; padding: 2px 0;">
+                    <span style="color: #34d399; font-weight: 700; font-size: 0.8rem;">Primary:</span><br>
+                    <span style="color: #34d399; font-weight: 700; font-size: 0.8rem;">CH${p_chan}/T#${p_tone_num}</span>
+                </div>
+            `, {
+                permanent: true,
+                direction: 'center',
+                className: 'cell-tooltip'
+            });
 
 
-            // 4. Draw Center Point Pin
+
+            // 5. Draw Center Point Pin
             centerMarker = L.circleMarker([currentLat, currentLon], {
                 radius: 6,
                 color: '#ffffff',
@@ -946,7 +975,7 @@
                 weight: 2
             }).addTo(map);
 
-            // 5. Draw Translucent Neighbor Polygons with tooltip details
+            // 6. Draw Translucent Neighbor Polygons with tooltip details
             for (let n of prof.neighbors) {
                 const [n_lat, n_lon, n_lat_err, n_lon_err] = decodeGeohash(n.gh);
                 const n_lat_min = n_lat - n_lat_err;
@@ -954,26 +983,23 @@
                 const n_lon_min = n_lon - n_lon_err;
                 const n_lon_max = n_lon + n_lon_err;
 
-                // Dynamically fetch neighboring cell's complete configuration set C(B)
-                const k = parseInt(document.getElementById('paramK').value);
-                const b_prof = await getRadioProfile(n_lat, n_lon, precision, radio_radius_km, k);
-
-
+                // Fetch neighbor's standalone primary standby channel
+                const n_prim_id = getPrimaryByTessellation(n.gh);
+                const [n_chan, n_tone] = configFromId(n_prim_id);
 
                 const is_reachable = (n.dist <= radio_radius_km);
 
-                // Compute intersection if geographically reachable
+                // A neighbor is only compatible if we have their Primary in our set of configurations
+                const active_has_neighbor_primary = prof.configurations.some(c => 
+                    c.channel === n_chan && Math.abs(c.ctcss - n_tone) < 0.01
+                );
+
                 let shared_conf = null;
-                if (is_reachable) {
-                    for (let a_conf of prof.configurations) {
-                        for (let b_conf of b_prof.configurations) {
-                            if (a_conf.channel === b_conf.channel && Math.abs(a_conf.ctcss - b_conf.ctcss) < 0.01) {
-                                shared_conf = a_conf;
-                                break;
-                            }
-                        }
-                        if (shared_conf) break;
-                    }
+                if (is_reachable && active_has_neighbor_primary) {
+                    shared_conf = {
+                        channel: n_chan,
+                        ctcss: n_tone
+                    };
                 }
 
                 const has_overlap = (shared_conf !== null);
@@ -1080,9 +1106,9 @@
                     `);
 
                     poly.bindTooltip(`
-                        <div style="text-align: center; line-height: 1.4; padding: 2px 0;">
-                            <span style="color: #34d399; font-weight: 700;">Pri: CH${n_chan}/T#${n_tone_num}</span><br>
-                            <span style="color: #38bdf8; font-weight: 700;">Lnk: CH${shared_chan}/T#${shared_tone_num}</span>
+                        <div style="text-align: center; line-height: 1.3; padding: 2px 0;">
+                            <span style="color: #38bdf8; font-weight: 700; font-size: 0.8rem;">Pri/Comp:</span><br>
+                            <span style="color: #38bdf8; font-weight: 700; font-size: 0.8rem;">CH${n_chan}/T#${n_tone_num}</span>
                         </div>
                     `, {
                         permanent: true,
@@ -1105,16 +1131,52 @@
             // Update range slider labels
             document.getElementById('lblPrecision').textContent = `${precision} chars`;
             document.getElementById('lblRadius').textContent = `${radius_km.toFixed(1)} km`;
-            document.getElementById('lblK').textContent = `${k} configs`;
+
+            if (currentLat === null || currentLon === null) {
+                if (centerMarker) map.removeLayer(centerMarker);
+                if (rangeCircle) map.removeLayer(rangeCircle);
+                if (activeCellPolygon) map.removeLayer(activeCellPolygon);
+                neighborPolygonsGroup.clearLayers();
+
+                currentProfile = null;
+
+                document.getElementById('outLocator').textContent = "-";
+                document.getElementById('lblK').textContent = `9 configs (Max: 9)`;
+                document.getElementById('outGeohash').textContent = "-";
+                document.getElementById('outPrimary').textContent = "-";
+                document.getElementById('outPrimaryExplain').innerHTML = "Select a location on the map to begin";
+                document.getElementById('outConfigList').innerHTML = "";
+                return;
+            }
 
             // Compute current location info
             const locator = latLonToLocator(currentLat, currentLon);
-            
             document.getElementById('outLocator').textContent = locator;
             
             try {
-                const prof = await getRadioProfile(currentLat, currentLon, precision, radius_km, k);
+                // Fetch profile with current K
+                let prof = await getRadioProfile(currentLat, currentLon, precision, radius_km, k);
                 
+                // Calculate dynamic upper bound for K: number of reachable neighbors + 1 (the cell itself)
+                const reachable_count = prof.neighbors.filter(n => n.dist <= radius_km).length;
+                const max_k = reachable_count + 1;
+                
+                // Update slider max dynamically
+                const sliderK = document.getElementById('paramK');
+                sliderK.max = max_k;
+                
+                // Clamp K value if it exceeds new dynamic maximum
+                let actual_k = k;
+                if (k > max_k) {
+                    actual_k = max_k;
+                    sliderK.value = max_k;
+                    // Re-fetch profile with clamped K
+                    prof = await getRadioProfile(currentLat, currentLon, precision, radius_km, actual_k);
+                }
+                
+                currentProfile = prof;
+                
+                document.getElementById('lblK').textContent = `${actual_k} configs (Max: ${max_k})`;
                 document.getElementById('outGeohash').textContent = prof.geohash;
                 
                 const p_chan = prof.primary.channel;
@@ -1221,8 +1283,105 @@
             });
         }
 
+        function exportChirpCsv() {
+            if (!currentProfile) {
+                alert("No configuration profile loaded to export!");
+                return;
+            }
+
+            const headers = [
+                "Location", "Name", "Frequency", "Duplex", "Offset", "Tone", "rToneFreq", "cToneFreq", "DtcsCode", "DtcsPolarity", "Mode", "TStep", "Power", "Skip", "Comment"
+            ];
+            
+            const rows = [headers.join(",")];
+            
+            currentProfile.configurations.forEach((conf, idx) => {
+                const isPrimary = idx === 0;
+                const role = isPrimary ? "PRI" : `L${idx}`;
+                
+                const toneNum = getToneNumber(conf.ctcss);
+                // Create a clean Name under 10 chars, e.g. PRI-CH3-T04 or L1-CH7-T01
+                const name = `${role}-CH${conf.channel}-T${toneNum < 10 ? '0' + toneNum : toneNum}`;
+                
+                const freq = getChannelFreq(conf.channel).toFixed(6);
+                const duplex = ""; // Simplex
+                const offset = "0.000000";
+                const tone = "TSQL"; // Tone Squelch mode (continuous CTCSS on RX and TX)
+                const rToneFreq = conf.ctcss.toFixed(1);
+                const cToneFreq = conf.ctcss.toFixed(1);
+                const dtcsCode = "023";
+                const dtcsPolarity = "NN";
+                const mode = "NFM"; // Narrowband FM for PMR446
+                const step = "12.50"; // Standard PMR446 step size
+                const power = "0.5W"; // Standard PMR446 power limit
+                const skip = "";
+                const comment = isPrimary 
+                    ? `Primary standby config for Geohash ${currentProfile.geohash}` 
+                    : `Link compatibility config #${idx} for Geohash ${currentProfile.geohash}`;
+                
+                const row = [
+                    idx + 1,        // Location
+                    name,           // Name
+                    freq,           // Frequency
+                    duplex,         // Duplex
+                    offset,         // Offset
+                    tone,           // Tone
+                    rToneFreq,      // rToneFreq
+                    cToneFreq,      // cToneFreq
+                    dtcsCode,       // DtcsCode
+                    dtcsPolarity,   // DtcsPolarity
+                    mode,           // Mode
+                    step,           // TStep
+                    power,          // Power
+                    skip,           // Skip
+                    comment         // Comment
+                ];
+                
+                // Wrap strings with quotes if they contain commas, though none should
+                const escapedRow = row.map(val => {
+                    const str = String(val);
+                    if (str.includes(",") || str.includes('"') || str.includes("\n")) {
+                        return `"${str.replace(/"/g, '""')}"`;
+                    }
+                    return str;
+                });
+                
+                rows.push(escapedRow.join(","));
+            });
+            
+            const csvContent = rows.join("\r\n");
+            const filename = `pmr446_geoconfig_${currentProfile.geohash}.csv`;
+            
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            if (link.download !== undefined) {
+                const url = URL.createObjectURL(blob);
+                link.setAttribute("href", url);
+                link.setAttribute("download", filename);
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+        }
+
+        function resetDefaults() {
+            document.getElementById('paramPrecision').value = 5;
+            document.getElementById('paramRadius').value = 10;
+            document.getElementById('paramK').value = 9;
+            
+            if (currentLat === null || currentLon === null) {
+                document.getElementById('searchInput').value = "";
+                map.setView([15, 0], 2);
+            }
+            
+            updateProfile();
+        }
+
         // Bind events
         document.getElementById('searchBtn').addEventListener('click', handleSearch);
+        document.getElementById('exportChirpBtn').addEventListener('click', exportChirpCsv);
+        document.getElementById('resetDefaultsBtn').addEventListener('click', resetDefaults);
         document.getElementById('geoBtn').addEventListener('click', useGeolocation);
         document.getElementById('searchInput').addEventListener('keypress', function(e) {
             if (e.key === 'Enter') handleSearch();

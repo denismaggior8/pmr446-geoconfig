@@ -17,16 +17,16 @@ PMR446 is a license-free personal radio service used widely across Europe. Due t
 - **Deterministic**: Given identical coordinates and version parameters, the protocol always yields identical configurations on any platform.
 - **Database and Network Free**: No network connections or central registration databases are required. Perfect for emergency, backcountry, or small embedded microcontrollers.
 - **Legacy Compatible**: Operates strictly within standard, existing analog PMR446 constraints (8 channels $\times$ 38 CTCSS tones = 304 discrete channels).
-- **Prevents Transitive Propagation**: By establishing compatibility through intersection sets ($\mathcal{C}(u) \cap \mathcal{C}(v) \ne \emptyset$) rather than requiring uniform primary channels, distant cells can reuse frequencies while adjacent cells remain co-operative.
+- **Prevents Transitive Propagation**: By establishing compatibility using symmetric standby-calling sets ($\text{Primary}(v) \in \mathcal{C}(u)$) rather than requiring uniform primary channels, distant cells can reuse frequencies while adjacent cells remain co-operative.
 
 ```
 A (CH3/77.0) <=== Link ===> B (CH5/88.5) <=== Link ===> C (CH2/123.0)
    (Cell A)                  (Cell B)                  (Cell C)
   Set: {3/77.0, 5/88.5}     Set: {5/88.5, 3/77.0, 2/123.0}    Set: {2/123.0, 5/88.5}
   
-  Link A-B compatibility: Shared (5/88.5)
-  Link B-C compatibility: Shared (2/123.0)
-  Link A-C compatibility: No shared configuration (Transitive propagation prevented!)
+  Link A-B compatibility: You call B on (5/88.5), B calls you on (3/77.0)
+  Link B-C compatibility: B calls C on (2/123.0), C calls B on (5/88.5)
+  Link A-C compatibility: No standby-calling programmed (Transitive propagation prevented!)
 ```
 
 ### 1.1 The Golden Operating Rule (SOP)

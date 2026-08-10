@@ -171,15 +171,17 @@ Configuration Set A                                  Configuration Set B
 
 The core protocol requires that any two geographically compatible cells share at least one PMR446 configuration, guaranteeing that a radio link can always be established using the cell-local profile.
 
-### 5.1 The Compatibility Invariant
-Let $\mathcal{C}(u) \subset \mathcal{S}$ be the set of configurations allocated to cell $u$. For any edge $(u, v)$ in the graph:
-$$(u, v) \in E \implies \mathcal{C}(u) \cap \mathcal{C}(v) \ne \emptyset$$
+### 5.1 The Symmetric Standby-Calling Compatibility Invariant
+To ensure that any operator can initiate contact with any standby neighbor cell $v$ within communication range, the protocol enforces that Cell $A$'s configuration set $\mathcal{C}(u)$ MUST list the Primary standby frequency of all its reachable neighbor cells:
+$$(u, v) \in E \implies \text{Primary}(v) \in \mathcal{C}(u) \quad \text{and} \quad \text{Primary}(u) \in \mathcal{C}(v)$$
+
+This mathematically guarantees that the old intersection invariant ($\mathcal{C}(u) \cap \mathcal{C}(v) \ne \emptyset$) is fully satisfied, while ensuring direct, two-way standby-calling compatibility.
 
 ### 5.2 Rule 1: No Transitive Propagation
-To avoid a chain reaction where adjacent cells are forced to have identical configurations across long distances, **nearby cells do not necessarily share the same Primary configuration**.
-$$\text{Primary}(u) = \text{Primary}(v) \quad \text{is NOT required.}$$
-Instead, compatibility is guaranteed via the intersection of their complete configuration sets:
-$$\mathcal{C}(u) = \{ \text{Primary}(u) \} \cup \text{NeighborConfigs}(u)$$
+To avoid a chain reaction where adjacent cells are forced to have identical standby configurations across long distances, **nearby cells do not share the same Primary configuration**.
+$$\text{Primary}(u) \ne \text{Primary}(v) \quad \text{is mathematically guaranteed.}$$
+Instead, mutual communication is established because each cell's set contains its neighbors' unique primary configurations:
+$$\mathcal{C}(u) = \{ \text{Primary}(u) \} \cup \{ \text{Primary}(v) \mid (u, v) \in E \}$$
 
 ```
 A (CH3/77.0) ------- B (CH5/88.5) ------- C (CH2/123.0)
