@@ -262,8 +262,9 @@ Every simulation run MUST calculate:
 - **Cell Count ($N$)**: Total unique Geohash vertices.
 - **Edge Count ($M$)**: Total unique connected edges ($\le R_{\text{radio}}$).
 - **Maximum Degree ($\Delta(G)$)**: Maximum neighbor count.
-- **Average Degree ($\bar{d}(G)$)**: $2M/N$.
-- **Uncovered Edges ($U_K$)**: $\Big| \big\{ (u, v) \in E \mid \mathcal{C}(u) \cap \mathcal{C}(v) = \emptyset \big\} \Big|$ for a given $K$.
+- **Average Degree ($d_{\text{avg}}(G)$)**: $2M/N$.
+- **Uncovered Edges ($U_K$)**: The number of connected edges with empty set intersection:
+  $$U_K = \Big| \big\{ (u, v) \in E \mid \mathcal{C}(u) \cap \mathcal{C}(v) = \emptyset \big\} \Big|$$
 - **Satisfied Link % ($P_K$)**: $(1 - U_K / M) \times 100\%$.
 - **Minimum Successful K ($K_{\text{successful}}$)**: $\min \{ K \in \mathbb{N} \mid U_K = 0 \}$.
 
