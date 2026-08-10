@@ -29,8 +29,9 @@ Every active operator **MUST** set their radio receiver to monitor their local c
 > *Think of this as your geographical calling "inbox." Your radio remains quiet from static and distant noise, but any nearby operator can reach you by calling your cell's designated Primary frequency.*
 
 ### Rule 2: The Outbound Calling Rule
-To contact an operator in a nearby cell, temporarily tune your transmitter and receiver to **their** cell's **Primary** configuration, call them, and wait for them to answer.
-> *Once contact is successfully established, the two operators should agree to move ("QSY") to any other mutual configuration in their overlapping set to free up the calling channel for other operators.*
+To contact operators in the same cell, use **your** current **Primary** configuration.
+To call operators in a nearby cell, temporarily tune your transmitter and receiver to **their** cell's **Primary** configuration, call them, and wait for them to answer.
+> *Once contact is successfully established, the two operators could stay in the current frequency/tone or agree to move to any other frequency/tone*
 
 ```
    [Cell A]                                                     [Cell B]
