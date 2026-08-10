@@ -2,8 +2,18 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>PMR446 GeoConfig Protocol Specification Explorer</title>
+    
+    <!-- PWA Metadata & Manifest -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0b0f19">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="PMR446 Geo">
+    <link rel="apple-touch-icon" href="icon.svg">
+    <link rel="icon" type="image/svg+xml" href="icon.svg">
     
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -350,7 +360,11 @@
             border-radius: 8px !important;
             box-shadow: 0 10px 25px rgba(0,0,0,0.5) !important;
         }
-        
+
+        .leaflet-popup-content {
+            min-width: 220px !important;
+            margin: 12px 16px !important;
+        }
         .leaflet-popup-tip {
             background: #0c111d !important;
             border: 1px solid rgba(56, 189, 248, 0.3);
@@ -384,6 +398,16 @@
             padding: 2px 6px !important;
             box-shadow: 0 4px 10px rgba(0,0,0,0.3) !important;
             white-space: nowrap;
+        }
+
+        /* Perfect center alignment for Leaflet tooltips using standalone CSS translate property */
+        .leaflet-tooltip-center,
+        .cell-tooltip,
+        .active-cell-tooltip,
+        .unreachable-tooltip,
+        .incompatible-tooltip {
+            margin: 0 !important;
+            translate: -50% -50% !important;
         }
 
         .active-cell-tooltip {
@@ -431,6 +455,128 @@
             box-shadow: 0 4px 10px rgba(0,0,0,0.3) !important;
             white-space: nowrap;
         }
+
+        /* Mobile-only styles & PWA overrides */
+        .mobile-only-btn {
+            display: none;
+        }
+
+        .mobile-nav {
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .mobile-only-btn {
+                display: block !important;
+            }
+
+            .mobile-nav {
+                display: flex;
+                height: 60px;
+                width: 100%;
+                background-color: #0c111d;
+                border-top: 1px solid rgba(255, 255, 255, 0.05);
+                justify-content: space-around;
+                align-items: center;
+                z-index: 1000;
+                flex-shrink: 0;
+            }
+
+            .nav-item {
+                flex: 1;
+                height: 100%;
+                background: none;
+                border: none;
+                color: var(--text-muted);
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                align-items: center;
+                gap: 0.25rem;
+                cursor: pointer;
+                transition: color 0.2s, background-color 0.2s;
+            }
+
+            .nav-item.active {
+                color: var(--accent-blue);
+                background-color: rgba(255, 255, 255, 0.02);
+            }
+
+            .nav-icon {
+                font-size: 1.2rem;
+            }
+
+            .nav-label {
+                font-size: 0.7rem;
+                font-weight: 500;
+            }
+
+            /* Header responsiveness */
+            header {
+                padding: 0.75rem 1rem !important;
+            }
+
+            .header-title-group h1 {
+                font-size: 1.1rem !important;
+            }
+
+            .header-title-group p {
+                display: none !important; /* Hide subtitle to preserve vertical space */
+            }
+
+            .badge {
+                font-size: 0.65rem !important;
+                padding: 0.15rem 0.5rem !important;
+            }
+
+            /* Container & Sidebar responsive overrides */
+            .main-container {
+                height: calc(100vh - 51px - 60px) !important; /* height = total screen - header (approx 51) - mobile-nav (60) */
+                flex-direction: column;
+                position: relative;
+                overflow: hidden;
+            }
+
+            .sidebar {
+                width: 100% !important;
+                height: 100% !important;
+                border-right: none !important;
+                box-shadow: none !important;
+                backdrop-filter: none !important;
+                -webkit-backdrop-filter: none !important;
+                background: var(--bg-main) !important; /* Dark solid background is easier to read on small screens */
+            }
+
+            #map {
+                width: 100% !important;
+                height: 100% !important;
+            }
+
+            /* Toggle visibility of map/sidebar based on active tab */
+            .main-container.active-tab-map .sidebar {
+                display: none !important;
+            }
+            .main-container.active-tab-map #map {
+                display: block !important;
+            }
+
+            .main-container.active-tab-dashboard #map {
+                display: none !important;
+            }
+            .main-container.active-tab-dashboard .sidebar {
+                display: flex !important;
+            }
+
+            /* Leaflet elements responsiveness */
+            .leaflet-control-zoom {
+                margin-top: 10px !important;
+                margin-right: 10px !important;
+            }
+
+            .leaflet-control-attribution {
+                font-size: 8px !important;
+            }
+        }
     </style>
 </head>
 <body>
@@ -445,7 +591,7 @@
     </header>
 
     <!-- Main Workspace -->
-    <div class="main-container">
+    <div class="main-container active-tab-map">
         
         <!-- Sidebar Dashboard -->
         <div class="sidebar">
@@ -551,6 +697,18 @@
         <!-- Full-Screen Interactive Leaflet Map -->
         <div id="map"></div>
 
+    </div>
+
+    <!-- Mobile Tab Navigation Bar -->
+    <div class="mobile-nav">
+        <button class="nav-item active" id="tabMapBtn" onclick="switchTab('map')">
+            <span class="nav-icon">🗺️</span>
+            <span class="nav-label">Map View</span>
+        </button>
+        <button class="nav-item" id="tabDashboardBtn" onclick="switchTab('dashboard')">
+            <span class="nav-icon">📊</span>
+            <span class="nav-label">Dashboard</span>
+        </button>
     </div>
 
     <!-- Leaflet Map JS Engine -->
@@ -873,8 +1031,38 @@
 
         // --- 3. UI and Interactive Leaflet Map Scripting ---
 
-        let map, centerMarker, rangeCircle, activeCellPolygon;
+        let map, centerMarker, rangeCircle, activeCellPolygon, activeCellTooltip;
         let neighborPolygonsGroup = L.layerGroup();
+        
+        // Override Leaflet's internal L.Tooltip._setPosition to completely disable JS-based
+        // width and height offsets for direction: 'center'. This lets us center tooltips purely
+        // using CSS 'translate: -50% -50%', preventing double-shifting and coordinate timing bugs
+        // on both mobile (where width/height are initially 0) and desktop screens!
+        if (typeof L !== 'undefined' && L.Tooltip) {
+            L.Tooltip.prototype._setPosition = function (pos) {
+                var container = this._container,
+                    direction = this.options.direction,
+                    tooltipWidth = container.offsetWidth,
+                    tooltipHeight = container.offsetHeight,
+                    offset = L.point(this.options.offset);
+
+                if (direction === 'top') {
+                    pos = pos.subtract(L.point(tooltipWidth / 2, tooltipHeight + offset.y));
+                } else if (direction === 'bottom') {
+                    pos = pos.subtract(L.point(tooltipWidth / 2, -offset.y));
+                } else if (direction === 'left') {
+                    pos = pos.subtract(L.point(tooltipWidth + offset.x, tooltipHeight / 2));
+                } else if (direction === 'right') {
+                    pos = pos.add(L.point(offset.x, -tooltipHeight / 2));
+                } else if (direction === 'center') {
+                    // Do absolutely nothing! Let CSS 'translate: -50% -50%' do the work perfectly on all devices!
+                } else {
+                    pos = pos.subtract(L.point(tooltipWidth / 2, tooltipHeight / 2));
+                }
+
+                L.DomUtil.setPosition(container, pos);
+            };
+        }
         
         let currentLat = null, currentLon = null;
         let currentProfile = null;
@@ -917,6 +1105,7 @@
             if (centerMarker) map.removeLayer(centerMarker);
             if (rangeCircle) map.removeLayer(rangeCircle);
             if (activeCellPolygon) map.removeLayer(activeCellPolygon);
+            if (activeCellTooltip) map.removeLayer(activeCellTooltip);
             neighborPolygonsGroup.clearLayers();
 
             // 2. Decode Selected Geohash Cell Box and Center coordinates
@@ -953,16 +1142,33 @@
             const p_chan = prof.primary.channel;
             const p_tone_num = getToneNumber(prof.primary.ctcss);
 
-            activeCellPolygon.bindTooltip(`
+            // Draw standalone active cell tooltip centered on exact mathematical cell center [c_lat, c_lon]
+            activeCellTooltip = L.tooltip({
+                permanent: true,
+                direction: 'center',
+                className: 'cell-tooltip'
+            })
+            .setLatLng([c_lat, c_lon])
+            .setContent(`
                 <div style="text-align: center; line-height: 1.3; padding: 2px 0;">
                     <span style="color: #34d399; font-weight: 700; font-size: 0.8rem;">Primary:</span><br>
                     <span style="color: #34d399; font-weight: 700; font-size: 0.8rem;">CH${p_chan}/T#${p_tone_num}</span>
                 </div>
-            `, {
-                permanent: true,
-                direction: 'center',
-                className: 'cell-tooltip'
-            });
+            `)
+            .addTo(map);
+
+            activeCellPolygon.bindPopup(`
+                <div class="popup-title" style="color: #34d399; margin-bottom: 8px;">Active Cell: ${prof.geohash}</div>
+                <div class="popup-text" style="font-size:0.85rem; line-height:1.5;">
+                    <b>Primary Channel:</b> CH${p_chan} (Tone #${p_tone_num})<br>
+                    <b>Geohash:</b> ${prof.geohash}<br>
+                    <b>Maidenhead:</b> ${latLonToLocator(currentLat, currentLon)}<br>
+                    <button class="mobile-only-btn" onclick="switchTab('dashboard')" style="display: none; background: var(--accent-green); border: none; color: #0b0f19; font-size: 0.75rem; font-weight: 600; padding: 8px 10px; border-radius: 4px; margin-top: 8px; cursor: pointer; width: 100%; font-family: 'Inter', sans-serif;">📊 View Full Profile in Dashboard</button>
+                </div>
+            `);
+
+            // Auto-open active cell popup on click/update to guide mobile users
+            activeCellPolygon.openPopup();
 
 
 
@@ -1052,11 +1258,14 @@
                         </div>
                     `);
 
-                    poly.bindTooltip(`[Out of Reach]`, {
+                    L.tooltip({
                         permanent: true,
                         direction: 'center',
                         className: 'unreachable-tooltip'
-                    });
+                    })
+                    .setLatLng([n_lat, n_lon])
+                    .setContent(`[Out of Reach]`)
+                    .addTo(neighborPolygonsGroup);
                 } else if (!has_overlap) {
                     // 2. In geographic range but spectral incompatibility
                     const n_prim_id = getPrimaryByTessellation(n.gh);
@@ -1075,11 +1284,14 @@
                         </div>
                     `);
 
-                    poly.bindTooltip(`[Incompatible]`, {
+                    L.tooltip({
                         permanent: true,
                         direction: 'center',
                         className: 'incompatible-tooltip'
-                    });
+                    })
+                    .setLatLng([n_lat, n_lon])
+                    .setContent(`[Incompatible]`)
+                    .addTo(neighborPolygonsGroup);
                 } else {
                     // 3. Reachable and compatible!
                     const shared_chan = shared_conf.channel;
@@ -1105,16 +1317,19 @@
                         </div>
                     `);
 
-                    poly.bindTooltip(`
+                    L.tooltip({
+                        permanent: true,
+                        direction: 'center',
+                        className: 'cell-tooltip'
+                    })
+                    .setLatLng([n_lat, n_lon])
+                    .setContent(`
                         <div style="text-align: center; line-height: 1.3; padding: 2px 0;">
                             <span style="color: #38bdf8; font-weight: 700; font-size: 0.8rem;">Pri/Comp:</span><br>
                             <span style="color: #38bdf8; font-weight: 700; font-size: 0.8rem;">CH${n_chan}/T#${n_tone_num}</span>
                         </div>
-                    `, {
-                        permanent: true,
-                        direction: 'center',
-                        className: 'cell-tooltip'
-                    });
+                    `)
+                    .addTo(neighborPolygonsGroup);
                 }
 
                 neighborPolygonsGroup.addLayer(poly);
@@ -1396,7 +1611,70 @@
         window.onload = function() {
             initMap();
             updateProfile();
+            
+            // Force size recalculation and update the profiles/tooltips when dimensions and fonts settle completely
+            if (document.fonts && document.fonts.ready) {
+                document.fonts.ready.then(() => {
+                    setTimeout(async () => {
+                        if (map) {
+                            map.invalidateSize();
+                            await updateProfile();
+                        }
+                    }, 350);
+                });
+            } else {
+                setTimeout(async () => {
+                    if (map) {
+                        map.invalidateSize();
+                        await updateProfile();
+                    }
+                }, 350);
+            }
         };
+
+        // Handle window resize dynamically to maintain centered tooltips & icons
+        window.addEventListener('resize', () => {
+            if (map) {
+                map.invalidateSize();
+            }
+        });
+
+        // --- 4. Responsive UI & Tab switching logic for mobile ---
+        function switchTab(tabName) {
+            const container = document.querySelector('.main-container');
+            const tabMapBtn = document.getElementById('tabMapBtn');
+            const tabDashboardBtn = document.getElementById('tabDashboardBtn');
+
+            if (tabName === 'map') {
+                container.classList.remove('active-tab-dashboard');
+                container.classList.add('active-tab-map');
+                tabMapBtn.classList.add('active');
+                tabDashboardBtn.classList.remove('active');
+                if (map) {
+                    setTimeout(() => {
+                        map.invalidateSize();
+                    }, 100);
+                }
+            } else {
+                container.classList.remove('active-tab-map');
+                container.classList.add('active-tab-dashboard');
+                tabDashboardBtn.classList.add('active');
+                tabMapBtn.classList.remove('active');
+            }
+        }
+
+        // --- 5. PWA Service Worker Registration ---
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js')
+                    .then((reg) => {
+                        console.log('Service Worker registered successfully with scope:', reg.scope);
+                    })
+                    .catch((err) => {
+                        console.error('Service Worker registration failed:', err);
+                    });
+            });
+        }
     </script>
 </body>
 </html>

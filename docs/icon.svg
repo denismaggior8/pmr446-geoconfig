@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <!-- Background Gradient -->
+    <radialGradient id="bgGrad" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#111827" />
+      <stop offset="100%" stop-color="#0b0f19" />
+    </radialGradient>
+    <!-- Glow Filters -->
+    <filter id="glowGreen" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="6" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+    <filter id="glowBlue" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="8" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+    <!-- Gradients -->
+    <linearGradient id="neonGreen" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#34d399" />
+      <stop offset="100%" stop-color="#059669" />
+    </linearGradient>
+    <linearGradient id="neonBlue" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="100%" stop-color="#2563eb" />
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="512" height="512" rx="112" fill="url(#bgGrad)" stroke="rgba(56, 189, 248, 0.15)" stroke-width="4"/>
+
+  <!-- Spatial Geohash Grid Lines -->
+  <g stroke="rgba(255, 255, 255, 0.05)" stroke-width="2">
+    <line x1="64" y1="128" x2="448" y2="128" />
+    <line x1="64" y1="224" x2="448" y2="224" />
+    <line x1="64" y1="320" x2="448" y2="320" />
+    <line x1="64" y1="416" x2="448" y2="416" />
+    
+    <line x1="128" y1="64" x2="128" y2="448" />
+    <line x1="224" y1="64" x2="224" y2="448" />
+    <line x1="320" y1="64" x2="320" y2="448" />
+    <line x1="416" y1="64" x2="416" y2="448" />
+  </g>
+
+  <!-- Highlighted Geohash Cell (Active) -->
+  <rect x="224" y="224" width="96" height="96" fill="rgba(52, 211, 153, 0.08)" stroke="url(#neonGreen)" stroke-width="4" filter="url(#glowGreen)" rx="8" />
+
+  <!-- Radio Waves (nominal communication radius) -->
+  <circle cx="272" cy="272" r="140" fill="none" stroke="rgba(56, 189, 248, 0.2)" stroke-width="2" stroke-dasharray="8 8" />
+  <circle cx="272" cy="272" r="190" fill="none" stroke="rgba(56, 189, 248, 0.1)" stroke-width="1.5" stroke-dasharray="6 12" />
+
+  <!-- Stylized walkie talkie icon in the center -->
+  <g transform="translate(242, 205)" fill="none" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Antenna -->
+    <line x1="12" y1="5" x2="12" y2="35" stroke="url(#neonBlue)" stroke-width="4" />
+    <circle cx="12" cy="4" r="3" fill="#38bdf8" />
+    
+    <!-- Volume Knob -->
+    <rect x="36" y="23" width="8" height="12" rx="2" fill="rgba(255, 255, 255, 0.2)" stroke="rgba(255, 255, 255, 0.4)" stroke-width="1.5" />
+
+    <!-- Radio Body -->
+    <rect x="6" y="35" width="48" height="85" rx="10" fill="#0c111d" stroke="url(#neonBlue)" stroke-width="4" filter="url(#glowBlue)" />
+    
+    <!-- Speaker Grill Lines -->
+    <line x1="16" y1="80" x2="44" y2="80" stroke="rgba(255, 255, 255, 0.2)" stroke-width="2.5" />
+    <line x1="16" y1="88" x2="44" y2="88" stroke="rgba(255, 255, 255, 0.2)" stroke-width="2.5" />
+    <line x1="16" y1="96" x2="44" y2="96" stroke="rgba(255, 255, 255, 0.2)" stroke-width="2.5" />
+    
+    <!-- Screen/Display -->
+    <rect x="14" y="47" width="32" height="22" rx="4" fill="rgba(52, 211, 153, 0.1)" stroke="url(#neonGreen)" stroke-width="2" />
+    <!-- Segment lines representing frequency text -->
+    <line x1="20" y1="58" x2="40" y2="58" stroke="#34d399" stroke-width="3" stroke-linecap="round" />
+  </g>
+</svg>
