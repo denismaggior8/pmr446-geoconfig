@@ -70,7 +70,18 @@ When receiving a Maidenhead Locator, the system MUST decode it to its exact coor
 Geohashing is used to discretize continuous geographic space. Precision $P$ (character length) is treated as an algorithm parameter and MUST NOT be hard-coded.
 - Default precision for nominal calculations is $P=5$ ($\approx 4.9\text{ km} \times 4.9\text{ km}$ at the equator).
 
-### 2.4 Distance Metric
+### 2.4 Adaptive Horizontal Clustering (Latitude Shrinking Compensation)
+To ensure scale-invariance and guard against the narrowing of Geohash cells at high latitudes, adjacent cells on the same latitude band are mathematically clustered into a single **Logical Cell** for coloring and configuration purposes.
+
+At latitude $\phi$, the horizontal merging factor $M(\phi)$ is defined as:
+$$M(\phi) = \max\left(1, ~ \text{round}\left( \frac{1}{\cos(\phi)} \right)\right)$$
+
+Let $X$ be the integer horizontal index of a Geohash cell. The logical horizontal index $X_{\text{logical}}$ is computed as:
+$$X_{\text{logical}} = M(\phi) \times \left\lfloor \frac{X}{M(\phi)} \right\rfloor + \left\lfloor \frac{M(\phi)}{2} \right\rfloor$$
+
+This maps all physical cells within the cluster to a single canonical representative, ensuring the logical width of the cell remains approximately $5\text{ km}$ at any latitude, keeping the number of neighbors bounded and eliminating color collisions near the poles.
+
+### 2.5 Distance Metric
 To compute physical distance $d$ between coordinates, implementations MUST use the **Haversine formula**:
 $$a = \sin^2\left(\frac{\phi_2 - \phi_1}{2}\right) + \cos(\phi_1)\cos(\phi_2)\sin^2\left(\frac{\lambda_2 - \lambda_1}{2}\right)$$
 $$c = 2 \arcsin(\sqrt{a})$$
@@ -152,20 +163,43 @@ Let lon_width = 2.0 * lon_err
 Let Y = Round((lat + 90.0) / lat_height)
 Let X = Round((lon + 180.0) / lon_width)
 
-Let color_id = (Y * 17 + X) mod 304
+# Compensate for longitude shrinking at high latitudes
+Let M = Max(1, Round(1.0 / Cos(Radians(lat))))
+Let X_logical = M * Floor(X / M) + Floor(M / 2)
+
+Let color_id = (Y * 17 + X_logical) mod 304
 If color_id < 0:
     color_id = color_id + 304
 
 Return color_id
 ```
 
-### 4.3 Local Profile Expansion (`ResolveLocalProfile`)
+### 4.3 Get Logical Geohash (`GetLogicalGeohash`)
+Compliant devices MUST map any physical Geohash string to its corresponding canonical **Logical Cell Geohash** representative to ensure scale-invariance and bounded profiles globally.
+```text
+Input: geohash_str
+Output: logical_geohash_str
+
+Let lat, lon, lat_err, lon_err = DecodeGeohash(geohash_str)
+Let lon_width = 2.0 * lon_err
+
+Let M = Max(1, Round(1.0 / Cos(Radians(lat))))
+Let X = Floor((lon + 180.0) / lon_width)
+Let X_logical = M * Floor(X / M) + Floor(M / 2)
+
+Let lon_logical = -180.0 + (X_logical + 0.5) * lon_width
+
+Return EncodeGeohash(lat, lon_logical, Length(geohash_str))
+```
+
+### 4.4 Local Profile Expansion (`ResolveLocalProfile`)
 Computes the complete local profile set $\mathcal{C}(u)$ of size $K$ without building a global regional graph.
 ```text
 Input: lat, lon, precision, radius_km, K
 Output: profile_dictionary { geohash, primary, configurations }
 
-Let cell_geohash = EncodeGeohash(lat, lon, precision)
+Let raw_cell_geohash = EncodeGeohash(lat, lon, precision)
+Let cell_geohash = GetLogicalGeohash(raw_cell_geohash)
 Let primary_id = GetPrimaryByTessellation(cell_geohash)
 
 If K <= 1:
@@ -182,19 +216,41 @@ Let step_lon_deg = 2.0 * lon_err
 Let lat_bound = ceiling(lat_step / step_lat_deg) + 1
 Let lon_bound = ceiling(lon_step / step_lon_deg) + 1
 
-Initialize neighbors = EmptySet()
+Initialize logical_neighbors_set = EmptySet()
 
 For i from -lat_bound to lat_bound:
     For j from -lon_bound to lon_bound:
         Let test_lat = lat + i * step_lat_deg
         Let test_lon = lon + j * step_lon_deg
         
+        Let test_lat = Max(-90.0, Min(90.0, test_lat))
+        Let test_lon = Max(-180.0, Min(180.0, test_lon))
+        
         Let gh = EncodeGeohash(test_lat, test_lon, precision)
-        If gh != cell_geohash:
-            Let gh_lat, gh_lon = CenterCoordinates(gh)
-            Let dist = HaversineDistance(lat, lon, gh_lat, gh_lon)
-            If dist <= radius_km:
-                neighbors.add( (dist, gh) )
+        Let lgh = GetLogicalGeohash(gh)
+        If lgh != cell_geohash:
+            logical_neighbors_set.add(lgh)
+
+Initialize neighbors = EmptySet()
+
+For each lgh in logical_neighbors_set:
+    Let n_lat, n_lon, n_lat_err, n_lon_err = DecodeGeohash(lgh)
+    Let M = Max(1, Round(1.0 / Cos(Radians(n_lat))))
+    
+    Let n_lat_min = n_lat - n_lat_err
+    Let n_lat_max = n_lat + n_lat_err
+    
+    Let n_lon_width_merged = (2.0 * n_lon_err) * M
+    Let n_lon_min = n_lon - (n_lon_width_merged / 2.0)
+    Let n_lon_max = n_lon + (n_lon_width_merged / 2.0)
+
+    # Closest point on the merged logical cell boundaries to clicked lat/lon
+    Let closest_lat = Max(n_lat_min, Min(n_lat_max, lat))
+    Let closest_lon = Max(n_lon_min, Min(n_lon_max, lon))
+    
+    Let dist = HaversineDistance(lat, lon, closest_lat, closest_lon)
+    If dist <= radius_km:
+        neighbors.add( (dist, lgh) )
 
 # Sort neighbors ascending by distance, and alphabetically by geohash for stable ties
 Sort neighbors
@@ -202,10 +258,10 @@ Sort neighbors
 Initialize allocated_configs = [primary_id]
 Initialize seen_configs = {primary_id}
 
-For each (dist, gh) in neighbors:
+For each (dist, lgh) in neighbors:
     If length(allocated_configs) >= K:
         Break
-    Let neigh_primary = GetPrimaryByTessellation(gh)
+    Let neigh_primary = GetPrimaryByTessellation(lgh)
     If neigh_primary not in seen_configs:
         Add neigh_primary to allocated_configs
         Add neigh_primary to seen_configs

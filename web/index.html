@@ -6,7 +6,6 @@
     <title>PMR446 GeoConfig Protocol Specification Explorer</title>
     
     <!-- PWA Metadata & Manifest -->
-    <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#0b0f19">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -920,15 +919,39 @@
             const Y = Math.round((lat + 90.0) / lat_height);
             const X = Math.round((lon + 180.0) / lon_width);
 
-            // 2D grid modular shift (MX=1, MY=17)
-            let color_id = (Y * 17 + X) % 304;
+            // Compensate for longitude shrinking at high latitudes
+            const rad_lat = lat * Math.PI / 180;
+            const M = Math.max(1, Math.round(1.0 / Math.cos(rad_lat)));
+            const X_logical = M * Math.floor(X / M) + Math.floor(M / 2);
+
+            // 2D grid modular shift (MX=1, MY=17) using logical coordinates
+            let color_id = (Y * 17 + X_logical) % 304;
             if (color_id < 0) color_id += 304;
             return color_id;
+        }
+
+        function getLogicalGeohash(geohash) {
+            const [lat, lon, lat_err, lon_err] = decodeGeohash(geohash);
+            const lon_width = 2.0 * lon_err;
+
+            const rad_lat = lat * Math.PI / 180;
+            const M = Math.max(1, Math.round(1.0 / Math.cos(rad_lat)));
+
+            // Find physical cell horizontal index using Floor to avoid rounding shift
+            const X = Math.floor((lon + 180.0) / lon_width);
+            const X_logical = M * Math.floor(X / M) + Math.floor(M / 2);
+
+            // Re-center longitude for the logical cluster center cell
+            const lon_logical = -180.0 + (X_logical + 0.5) * lon_width;
+
+            // Latitude is unmerged, so it remains exactly the physical center latitude
+            return encodeGeohash(lat, lon_logical, geohash.length);
         }
 
         // 2.7 Neighbor local search grid
         async function getLocalNeighbors(center_lat, center_lon, precision, radio_radius_km) {
             const center_geohash = encodeGeohash(center_lat, center_lon, precision);
+            const center_logical_gh = getLogicalGeohash(center_geohash);
             const [_, __, lat_err, lon_err] = decodeGeohash(center_geohash);
             
             const lat_max_diff = radio_radius_km / 111.1;
@@ -955,29 +978,40 @@
                 }
             }
             
-            const neighbors = [];
+            const logical_hashes = new Set();
             for (let gh of candidate_hashes) {
-                if (gh === center_geohash) continue;
+                logical_hashes.add(getLogicalGeohash(gh));
+            }
+            
+            const neighbors = [];
+            for (let lgh of logical_hashes) {
+                if (lgh === center_logical_gh) continue;
                 
-                const [n_lat, n_lon, n_lat_err, n_lon_err] = decodeGeohash(gh);
+                const [n_lat, n_lon, n_lat_err, n_lon_err] = decodeGeohash(lgh);
+                const rad_n_lat = n_lat * Math.PI / 180;
+                const M = Math.max(1, Math.round(1.0 / Math.cos(rad_n_lat)));
+                
                 const n_lat_min = n_lat - n_lat_err;
                 const n_lat_max = n_lat + n_lat_err;
-                const n_lon_min = n_lon - n_lon_err;
-                const n_lon_max = n_lon + n_lon_err;
+                
+                const n_lon_width_merged = (2.0 * n_lon_err) * M;
+                const n_lon_min = n_lon - (n_lon_width_merged / 2.0);
+                const n_lon_max = n_lon + (n_lon_width_merged / 2.0);
 
-                // Find closest point on neighbor geohash box to exact clicked center_lat/lon
+                // Find closest point on neighbor logical box to exact clicked center_lat/lon
                 const closest_lat = Math.max(n_lat_min, Math.min(n_lat_max, center_lat));
                 const closest_lon = Math.max(n_lon_min, Math.min(n_lon_max, center_lon));
                 
                 const dist = haversineDistance(center_lat, center_lon, closest_lat, closest_lon);
-                neighbors.push({ dist, gh });
+                neighbors.push({ dist, gh: lgh });
             }
             return neighbors;
         }
 
         // 2.8 Local Profile Generator Facade
         async function getRadioProfile(latitude, longitude, precision = 5, radio_radius_km = 10.0, k = 9) {
-            const cell_geohash = encodeGeohash(latitude, longitude, precision);
+            const raw_cell_geohash = encodeGeohash(latitude, longitude, precision);
+            const cell_geohash = getLogicalGeohash(raw_cell_geohash);
             const primary_id = getPrimaryByTessellation(cell_geohash);
             const [prim_chan, prim_tone] = configFromId(primary_id);
             
@@ -1017,14 +1051,14 @@
             
             const configs = allocated_ids.map(id => {
                 const [chan, tone] = configFromId(id);
-                return { channel: chan, tone: tone }; // Keep compatibility format
+                return { channel: chan, ctcss: tone }; // Keep compatibility format
             });
             
             return {
                 geohash: cell_geohash,
                 primary: { channel: prim_chan, ctcss: prim_tone },
-                configurations: configs.map(c => ({ channel: c.channel, ctcss: c.tone })),
-                neighbors: neighbors // Return all local grids (including the unreachable ones) for full map visualization
+                configurations: configs,
+                neighbors: neighbors
             };
         }
 
@@ -1122,10 +1156,15 @@
             }).addTo(map);
 
             // 4. Draw Selected Geohash Cell Box
+            const rad_c_lat = c_lat * Math.PI / 180;
+            const active_M = Math.max(1, Math.round(1.0 / Math.cos(rad_c_lat)));
+
             const lat_min = c_lat - lat_err;
             const lat_max = c_lat + lat_err;
-            const lon_min = c_lon - lon_err;
-            const lon_max = c_lon + lon_err;
+            
+            const lon_width_merged = (2.0 * lon_err) * active_M;
+            const lon_min = c_lon - (lon_width_merged / 2.0);
+            const lon_max = c_lon + (lon_width_merged / 2.0);
 
             activeCellPolygon = L.polygon([
                 [lat_min, lon_min],
@@ -1184,10 +1223,15 @@
             // 6. Draw Translucent Neighbor Polygons with tooltip details
             for (let n of prof.neighbors) {
                 const [n_lat, n_lon, n_lat_err, n_lon_err] = decodeGeohash(n.gh);
+                const rad_n_lat = n_lat * Math.PI / 180;
+                const M_neighbor = Math.max(1, Math.round(1.0 / Math.cos(rad_n_lat)));
+
                 const n_lat_min = n_lat - n_lat_err;
                 const n_lat_max = n_lat + n_lat_err;
-                const n_lon_min = n_lon - n_lon_err;
-                const n_lon_max = n_lon + n_lon_err;
+                
+                const n_lon_width_merged = (2.0 * n_lon_err) * M_neighbor;
+                const n_lon_min = n_lon - (n_lon_width_merged / 2.0);
+                const n_lon_max = n_lon + (n_lon_width_merged / 2.0);
 
                 // Fetch neighbor's standalone primary standby channel
                 const n_prim_id = getPrimaryByTessellation(n.gh);
@@ -1664,7 +1708,13 @@
         }
 
         // --- 5. PWA Service Worker Registration ---
-        if ('serviceWorker' in navigator) {
+        if ('serviceWorker' in navigator && (window.location.protocol === 'http:' || window.location.protocol === 'https:')) {
+            // Dynamically inject manifest.json to avoid CORS errors on local file:// protocol
+            const link = document.createElement('link');
+            link.rel = 'manifest';
+            link.href = 'manifest.json';
+            document.head.appendChild(link);
+
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('sw.js')
                     .then((reg) => {
