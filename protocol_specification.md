@@ -94,9 +94,9 @@ where $\phi_1, \phi_2$ are latitudes, $\lambda_1, \lambda_2$ are longitudes, and
 
 ### 3.1 Geographic Graph Connectivity
 The discrete geographic space is modeled as an undirected graph $G = (V, E)$ where:
-- $V \subset \mathcal{H}_P$: A set of Geohash cells at precision $P$.
-- $E$: Edges between cell centers within nominal radio radius:
-  $$E = \{ (u, v) \in V \times V \mid \text{dist}(\text{center}(u), \text{center}(v)) \le R_{\text{radio}} \}$$
+- $V \subset \mathcal{L}_P$: A set of **Logical Cells** at precision $P$ (where each logical cell $u$ represents the horizontal cluster of $M(\phi)$ physical Geohash cells mapped to a single canonical representative).
+- $E$: Edges between Logical Cells whose closest physical boundary distance is within the nominal radio radius:
+  $$E = \{ (u, v) \in V \times V \mid \text{dist}_{\text{boundary}}(u, v) \le R_{\text{radio}} \}$$
 - Default radius parameter: $R_{\text{radio}} = 10.0\text{ km}$ (fully configurable).
 
 ### 3.2 The Core Compatibility Invariant (Symmetric Standby-Calling)
@@ -105,7 +105,7 @@ $$(u, v) \in E \implies \text{Primary}(v) \in \mathcal{C}(u) \quad \text{and} \q
 This guarantees that operators in adjacent cells can always contact each other by tuning to the other's designated primary calling channel.
 
 ### 3.3 Rule 1: No Transitive Propagation
-To avoid transitive channel locking across long ranges, **adjacent cells are forbidden from having the same primary configuration**:
+To avoid transitive channel locking across long ranges, **adjacent Logical Cells are forbidden from having the same primary configuration**:
 $$\text{Primary}(u) \ne \text{Primary}(v) \quad \text{where } (u, v) \in E$$
 
 ---
