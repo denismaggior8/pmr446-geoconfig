@@ -647,7 +647,7 @@
                         <div class="loc-box-val" id="outLocator">-</div>
                     </div>
                     <div class="loc-box">
-                        <div class="loc-box-lbl">Geohash Cell</div>
+                        <div class="loc-box-lbl">Logical Cell ID</div>
                         <div class="loc-box-val" id="outGeohash">-</div>
                     </div>
                 </div>
@@ -1197,12 +1197,14 @@
             .addTo(map);
 
             activeCellPolygon.bindPopup(`
-                <div class="popup-title" style="color: #34d399; margin-bottom: 8px;">Active Cell: ${prof.geohash}</div>
-                <div class="popup-text" style="font-size:0.85rem; line-height:1.5;">
-                    <b>Primary Channel:</b> CH${p_chan} (Tone #${p_tone_num})<br>
-                    <b>Geohash:</b> ${prof.geohash}<br>
-                    <b>Maidenhead:</b> ${latLonToLocator(currentLat, currentLon)}<br>
-                    <button class="mobile-only-btn" onclick="switchTab('dashboard')" style="display: none; background: var(--accent-green); border: none; color: #0b0f19; font-size: 0.75rem; font-weight: 600; padding: 8px 10px; border-radius: 4px; margin-top: 8px; cursor: pointer; width: 100%; font-family: 'Inter', sans-serif;">📊 View Full Profile in Dashboard</button>
+                <div class="active-cell-popup" style="font-family: 'Inter', sans-serif; font-size: 0.85rem; color: #f3f4f6; width: 220px; line-height: 1.4;">
+                    <div class="popup-title" style="color: #34d399; margin-bottom: 8px;">Active Logical Cell: ${prof.geohash}</div>
+                    <div class="popup-text" style="font-size:0.85rem; line-height:1.5;">
+                        <b>Primary Channel:</b> CH${p_chan} (Tone #${p_tone_num})<br>
+                        <b>Geohash:</b> ${prof.geohash}<br>
+                        <b>Maidenhead:</b> ${latLonToLocator(currentLat, currentLon)}<br>
+                        <button class="mobile-only-btn" onclick="switchTab('dashboard')" style="display: none; background: var(--accent-green); border: none; color: #0b0f19; font-size: 0.75rem; font-weight: 600; padding: 8px 10px; border-radius: 4px; margin-top: 8px; cursor: pointer; width: 100%; font-family: 'Inter', sans-serif;">📊 View Full Profile in Dashboard</button>
+                    </div>
                 </div>
             `);
 
