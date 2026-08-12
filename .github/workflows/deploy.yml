@@ -1,0 +1,70 @@
+name: Deploy MkDocs to GitHub Pages
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
+# However, do NOT cancel in-progress runs as we want to allow these production deployments to complete.
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install MkDocs and Theme
+        run: |
+          pip install mkdocs mkdocs-material
+
+      - name: Prepare Docs Directory
+        run: |
+          # Create docs/ folder if it doesn't exist (e.g. for javascripts)
+          mkdir -p docs
+          
+          # Copy README.md as the main home page
+          cp README.md docs/index.md
+          
+          # Copy the technical protocol specifications
+          cp protocol_specification.md docs/protocol_specification.md
+          
+          # Create a subfolder to port the Visual Explorer files
+          mkdir -p docs/explorer
+          cp -r web/* docs/explorer/
+
+      - name: Build MkDocs Site
+        run: |
+          mkdocs build
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload Pages Artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          # Select the folder containing our compiled static website
+          path: './site'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
