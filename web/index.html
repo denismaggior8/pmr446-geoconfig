@@ -679,14 +679,14 @@
                 <div class="section-title">📖 Protocol Math Context</div>
                 <div class="explainer-box">
                     <p>
-                        The primary configuration is computed via the 2D modular shift grid 
-                        <span class="formula-inline">(17Y + X) mod 304</span>.
+                        The primary configuration of each <strong>Logical Cell</strong> is computed via the 2D modular shift grid 
+                        <span class="formula-inline">(17Y + X<sub>logical</sub>) mod 304</span>.
                     </p>
                     <p>
-                        Adjacent cells within the nominal radio range (shaded grey on map) are evaluated. Their primaries are sorted by Haversine distance ascending and loaded into the set up to capacity <span class="formula-inline">K</span>.
+                        Adjacent logical cells within the nominal radio range (shaded grey on map) are evaluated. Their primaries are sorted by Haversine distance ascending and loaded into the channel set up to capacity <span class="formula-inline">K</span>.
                     </p>
                     <p>
-                        This guarantees that any two overlapping cells share at least one common standby config, while avoiding global transitive lock-in!
+                        This guarantees that any two overlapping logical cells share at least one common standby config, while avoiding global transitive lock-in!
                     </p>
                 </div>
             </div>
