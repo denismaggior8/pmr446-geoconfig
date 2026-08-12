@@ -1,5 +1,7 @@
 # PMR446 GeoConfig: Decentralized Spatial Channel-Allocation for PMR446 Radios
 
+[![Deploy MkDocs to GitHub Pages](https://github.com/denismaggior8/pmr446-geoconfig/actions/workflows/deploy.yml/badge.svg)](https://github.com/denismaggior8/pmr446-geoconfig/actions/workflows/deploy.yml)
+
 Welcome to **PMR446 GeoConfig** — a modern, decentralized, and geographically aware standard operating protocol and visual explorer for analog PMR446 radio equipment.
 
 The goal of this project is to map any physical coordinate on Earth to a stable, compatible set of channel and squelch tone configurations without relying on central registries, database lookups, or network synchronization. 
@@ -68,8 +70,8 @@ The project has been simplified to separate human-oriented quickstart and operat
 To allow engineers, designers, and hobbyists to explore the protocol's spatial channel allocations globally in real-time, we provide an interactive, browser-based **Visual Explorer**.
 
 ### Accessing the Explorer
-- 💻 **Offline Local Access**: Open the file **[`web/index.html`](file:///Users/denismaggiorotto/Documents/Progetti/Personali/repos/pmr446-geoconfig/web/index.html)** directly in any modern web browser.
-- 🚀 **Live Hosted Access**: Accessible worldwide via GitHub Pages directly from the repository's main domain.
+- 💻 **Offline Local Access**: Open the file **[`web/index.html`](web/index.html)** directly in any modern web browser.
+- 🚀 **Live Hosted Access**: Accessible worldwide via **[GitHub Pages](https://denismaggior8.github.io/pmr446-geoconfig/explorer/)** directly from the repository's main domain.
 
 ### Key Explorer Features
 - **Map Interaction**: Click or tap anywhere on the dark-theme worldwide map to select a physical coordinate.
