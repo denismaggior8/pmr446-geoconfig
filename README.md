@@ -95,7 +95,3 @@ Here is a step-by-step example of how to use PMR446 GeoConfig in practice:
    - Once they answer, agree to switch back to your primary channel (`CH3 / 77.0 Hz`) or any other mutually compatible configuration in your sets to keep their calling channel clear.
 
 ---
-
-## 6. Scientific Reproducibility & Contributing
-
-For AI coding assistants, compilers, embedded systems engineers, and programmatic developers, please consult **[`AGENTS.md`](file:///Users/denismaggiorotto/Documents/Progetti/Personali/repos/pmr446-geoconfig/AGENTS.md)**. It contains the official, strict mathematical specification, standard JSON export schemas, regional test area bounding boxes (such as `IT-BBOX-01`), and complete algorithmic pseudocode for full independent reproducibility.
